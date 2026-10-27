@@ -1,0 +1,1781 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FEC autogestión</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #F3F4F6; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* Onda animada mientras el audio se reproduce */
+        .audio-wave span { display:inline-block; width:3px; height:10px; margin:0 1px; background:currentColor; border-radius:2px; animation: wave 1s infinite ease-in-out; }
+        .audio-wave span:nth-child(2) { animation-delay: .15s; }
+        .audio-wave span:nth-child(3) { animation-delay: .3s; }
+        @keyframes wave { 0%,100% { transform: scaleY(0.5); } 50% { transform: scaleY(1.4); } }
+    </style>
+</head>
+<body class="bg-gray-100 pb-28">
+
+    <!-- ================== AUDIO DE INSTRUCCIONES ==================
+         Se declara una sola vez, con precarga y varias fuentes en orden:
+         1. el mp3 incrustado en base64 (siempre funciona, sin internet)
+         2. GitHub raw  3. jsDelivr
+         El navegador usa la primera que cargue correctamente. -->
+    <audio id="audio-instrucciones" preload="auto" playsinline>
+        <source src="https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/INSTRUCCIONES/Instrucciones%20de%20la%20parte%20social_9759.m4a" type="audio/mp4">
+    </audio>
+    <audio id="audio-instrucciones-fin" preload="auto" playsinline>
+        <source src="https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/INSTRUCCIONES/Instrucciones%20de%20%E2%80%9CTu%20dinero%E2%80%9D%20%28la%20parte%20financiera%29_3829.m4a" type="audio/mp4">
+    </audio>
+
+    <!-- Header Fijo Superior Móvil -->
+    <div class="fixed top-0 w-full bg-[#006DC4] z-50 shadow-md">
+        <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between relative">
+            <button id="btn-back" onclick="volverAtras()" class="hidden absolute left-4 text-white p-2 -ml-2 hover:bg-[#005294] rounded-full transition-colors z-10">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+            <h1 class="text-white font-semibold text-lg w-full text-center">FEC autogestión</h1>
+        </div>
+    </div>
+
+    <!-- Contenedor Principal Limitado a Móvil -->
+    <div class="max-w-md mx-auto pt-14 fade-in">
+
+        <!-- PANTALLA 1: DATOS DEL CLIENTE (LIMPIA, SOLO NOMBRE Y DPI) -->
+        <div id="pantalla-inicio" class="p-4 flex flex-col min-h-[calc(100vh-5rem)]">
+            <div class="bg-white rounded-2xl shadow-sm p-5 mb-4">
+                <h2 class="text-black text-[14px] font-normal text-center mb-5">Datos del Integrante</h2>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Nombres y apellidos</label>
+                        <input type="text" id="input-nombres" class="w-full border border-gray-300 rounded-lg px-3 py-3 text-[15px] focus:outline-none focus:border-[#006DC4] focus:ring-1 focus:ring-[#006DC4] transition-colors bg-white text-gray-800 placeholder-gray-400" placeholder="Ej. Juan Pérez">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Número de DPI</label>
+                        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="13" id="input-dpi" oninput="this.value = this.value.replace(/[^0-9]/g, '')" class="w-full border border-gray-300 rounded-lg px-3 py-3 text-[15px] focus:outline-none focus:border-[#006DC4] focus:ring-1 focus:ring-[#006DC4] transition-colors bg-white text-gray-800 placeholder-gray-400" placeholder="Ej. 1234567890101">
+                        <p class="text-[10px] text-gray-400 mt-1">Debe contener exactamente 13 dígitos</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-auto pb-4">
+                <button onclick="iniciarFormulario()" class="w-full bg-[#006DC4] text-white font-medium py-3 rounded-lg hover:bg-[#005294] transition-colors text-[15px] shadow-sm">
+                    Iniciar Evaluación
+                </button>
+            </div>
+        </div>
+
+        <!-- PANTALLA 2: INFORMACIÓN FINANCIERA (Paso 1 de 2, oculta al inicio) -->
+        <div id="pantalla-financiera" class="hidden">
+            <!-- Barra de Avance de toda la evaluación: Tu dinero + Tu casa -->
+            <div class="bg-white px-4 py-3 shadow-sm sticky top-14 z-40">
+                <div class="flex justify-between items-end mb-1.5">
+                    <span class="text-xs text-gray-500 font-medium">Paso 1 de 2: Tu dinero</span>
+                    <span class="avance-texto text-xs font-semibold text-gray-700">0% completado</span>
+                </div>
+                <div class="flex gap-1">
+                    <div class="flex-1 bg-gray-200 rounded-full h-1.5"><div class="avance-dinero bg-[#006DC4] h-1.5 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div></div>
+                    <div class="flex-1 bg-gray-200 rounded-full h-1.5"><div class="avance-casa bg-[#006DC4] h-1.5 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div></div>
+                </div>
+                <div class="flex text-[10px] text-gray-400 mt-1"><span class="flex-1">Tu dinero</span><span class="flex-1 pl-1">Tu casa</span></div>
+            </div>
+
+            <!-- Contenedor de preguntas financieras -->
+            <div class="bg-white rounded-t-[32px] pt-8 px-4 pb-28 mt-2 shadow-sm min-h-screen" id="fin-container">
+                <!-- Se inyecta dinámicamente -->
+            </div>
+
+            <!-- Botón Fijo Inferior -->
+            <div class="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-100 p-4 pb-6 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                <button id="btn-fin-continuar" onclick="continuarFinanzas()" class="w-full bg-gray-200 text-gray-400 font-bold py-3.5 rounded-xl transition-all duration-300">
+                    Continuar
+                </button>
+            </div>
+        </div>
+
+        <!-- PANTALLA 3: FORMULARIO SOCIAL CON ICONOS (Paso 2 de 2) -->
+        <div id="pantalla-formulario" class="hidden">
+            <!-- Barra de Avance de toda la evaluación: Tu dinero + Tu casa -->
+            <div class="bg-white px-4 py-3 shadow-sm sticky top-14 z-40">
+                <div class="flex justify-between items-end mb-1.5">
+                    <span class="text-xs text-gray-500 font-medium">Paso 2 de 2: Tu casa</span>
+                    <span class="avance-texto text-xs font-semibold text-gray-700">0% completado</span>
+                </div>
+                <div class="flex gap-1">
+                    <div class="flex-1 bg-gray-200 rounded-full h-1.5"><div class="avance-dinero bg-[#006DC4] h-1.5 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div></div>
+                    <div class="flex-1 bg-gray-200 rounded-full h-1.5"><div class="avance-casa bg-[#006DC4] h-1.5 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div></div>
+                </div>
+                <div class="flex text-[10px] text-gray-400 mt-1"><span class="flex-1">Tu dinero</span><span class="flex-1 pl-1">Tu casa</span></div>
+            </div>
+
+            <!-- Contenedor de Tarjetas -->
+            <div class="p-4" id="form-container">
+                <!-- Se inyecta dinámicamente -->
+            </div>
+
+            <!-- Botón Fijo Inferior -->
+            <div class="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-100 p-4 pb-6 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                <button id="btn-evaluar" onclick="enviarDatos()" class="w-full bg-gray-200 text-gray-400 font-bold py-3.5 rounded-xl transition-all duration-300" disabled>
+                    Evaluar ruta
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Error Datos Incompletos -->
+    <div id="modal-error" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-sm text-center shadow-2xl transform scale-95 transition-transform duration-300">
+            <div class="w-16 h-16 mx-auto bg-orange-100 rounded-full flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            </div>
+            <h2 class="text-xl font-bold text-gray-800 mb-2">Datos incompletos o inválidos</h2>
+            <p class="text-gray-600 mb-6 text-sm">Por favor, llena los nombres y asegúrate de ingresar un número de DPI válido de exactamente 13 dígitos.</p>
+            <button onclick="cerrarModalError()" class="w-full bg-orange-500 text-white font-bold py-3 rounded-xl hover:bg-orange-600 transition-colors">
+                Revisar datos
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal Instrucciones financieras (antes del Paso 1 "Tu dinero") -->
+    <div id="modal-instrucciones-fin" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-[24px] p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto text-center shadow-2xl transform scale-95 transition-transform duration-300">
+            <img src="https://i.postimg.cc/3xHSLNn7/Chat-GPT-Image-11-jun-2026-01-02-12-p-m-1.png" alt="Instrucciones" class="w-14 h-14 mx-auto mb-4 object-contain">
+            <h2 class="text-[18px] font-bold text-[#006DC4] mb-3">Instrucciones</h2>
+            <p class="text-gray-500 mb-4 text-[15px] leading-relaxed">
+                Primero te vamos a preguntar por el dinero de tu negocio y de tu casa:
+            </p>
+            <ul class="text-left bg-[#F5FAFF] rounded-2xl px-4 py-3 mb-4 space-y-2.5">
+                <li class="flex items-center gap-3 text-[14px] text-gray-600"><span class="text-[20px] leading-none">💰</span>Cuánto vendes y cuánto ganas</li>
+                <li class="flex items-center gap-3 text-[14px] text-gray-600"><span class="text-[20px] leading-none">🛒</span>Cuánto gastas en tu negocio y en tu casa</li>
+                <li class="flex items-center gap-3 text-[14px] text-gray-600"><span class="text-[20px] leading-none">🏠</span>Lo que tienes y lo que debes</li>
+                <li class="flex items-center gap-3 text-[14px] text-gray-600"><span class="text-[20px] leading-none">🎯</span>Para qué quieres el crédito</li>
+            </ul>
+            <p class="text-gray-500 mb-5 text-[14px] leading-relaxed">
+                Escribe solo números. Si no tienes algo, déjalo en <b>0</b>. Responde con la verdad.
+            </p>
+
+            <button id="btn-audio-fin" onclick="toggleAudioInstruccionesFin()"
+                class="w-full flex items-center justify-center gap-2 border border-[#006DC4] text-[#006DC4] bg-[#E6F4FF] font-medium py-2.5 rounded-xl mb-5 text-[14px] transition-colors">
+                <span id="audio-fin-icono" class="flex items-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M11 5L6 9H2v6h4l5 4V5z"></path>
+                    </svg>
+                </span>
+                <span id="audio-fin-texto">Escuchar instrucciones</span>
+            </button>
+
+            <button onclick="aceptarInstruccionesFin()" class="w-full bg-[#006DC4] text-white font-medium py-3 rounded-xl hover:bg-[#005294] transition-colors text-[15px]">
+                Iniciar
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal Instrucciones (con audio) -->
+    <div id="modal-instrucciones" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-[24px] p-6 w-full max-w-sm text-center shadow-2xl transform scale-95 transition-transform duration-300">
+            <img src="https://i.postimg.cc/3xHSLNn7/Chat-GPT-Image-11-jun-2026-01-02-12-p-m-1.png" alt="Instrucciones" class="w-14 h-14 mx-auto mb-4 object-contain">
+            <h2 class="text-[18px] font-bold text-[#006DC4] mb-3">Instrucciones</h2>
+            <p class="text-gray-500 mb-4 text-[15px] leading-relaxed">
+                En el siguiente formulario, por favor selecciona con honestidad las opciones que mejor describan las características de tu vivienda y tus condiciones de vida actuales.
+            </p>
+
+            <!-- Control de audio: se activa solo al abrir el modal.
+                 Tambien sirve de respaldo si el navegador bloquea la reproducción. -->
+            <button id="btn-audio" onclick="toggleAudioInstrucciones()"
+                class="w-full flex items-center justify-center gap-2 border border-[#006DC4] text-[#006DC4] bg-[#E6F4FF] font-medium py-2.5 rounded-xl mb-5 text-[14px] transition-colors">
+                <span id="audio-icono" class="flex items-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M11 5L6 9H2v6h4l5 4V5z"></path>
+                    </svg>
+                </span>
+                <span id="audio-texto">Escuchar instrucciones</span>
+            </button>
+
+            <button onclick="aceptarInstrucciones()" class="w-full bg-[#006DC4] text-white font-medium py-3 rounded-xl hover:bg-[#005294] transition-colors text-[15px]">
+                Iniciar
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal de Resultados -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-[24px] p-6 w-full max-w-sm text-center shadow-2xl transform scale-95 transition-transform duration-300" id="modal-content">
+            <img src="https://i.postimg.cc/J0DXc7jZ/Chat-GPT-Image-11-jun-2026-01-02-12-p-m-3.png" alt="Evaluación Completada" class="w-14 h-14 mx-auto mb-4 object-contain">
+            <h2 class="text-[18px] font-bold text-[#006DC4] mb-2">Evaluación Completada</h2>
+            <p class="text-gray-500 mb-6 text-[15px]">El formulario ha sido registrado exitosamente.</p>
+            <div class="bg-[#E6F4FF] p-5 rounded-2xl mb-6">
+                <p class="text-[15px] text-[#006DC4] mb-1">Dónde estás hoy:</p>
+                <p class="text-[16px] font-bold text-[#006DC4]" id="modal-segmento">Etapa inicial</p>
+            </div>
+            <button onclick="cerrarModal()" class="w-full bg-[#006DC4] text-white font-medium py-3 rounded-xl hover:bg-[#005294] transition-colors text-[15px]">
+                Continuar
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const formData = [
+            {
+                id: 'agua', title: '¿De dónde obtienes el agua en tu hogar?', type: 'single',
+                options: [
+                    { label: 'Tubería dentro de la vivienda', icon: 'https://i.postimg.cc/fkVvMBb7/Tuberi-a-dentro-de-la-vivienda-o-terreno-Tuberi-a-dentro-de-la-vivienda-o-terreno-1.png', seg: 4, audio: 'agua_tuberia_dentro' },
+                    { label: 'Pozo privado', icon: 'https://i.postimg.cc/BtjCJMvc/pozo-privado-1.png', seg: 4, audio: 'pozo_privado' },
+                    { label: 'Camión o pipa', icon: 'https://i.postimg.cc/YjvxtbSz/pipa-1.png', seg: 3, audio: 'agua_camion' },
+                    { label: 'Tubería fuera de la vivienda', icon: 'https://i.postimg.cc/6T8hBYQr/chorro-publico-1.png', seg: 3, audio: 'agua_tuberia_fuera' },
+                    { label: 'De otra vivienda o de un vecino', icon: 'https://i.postimg.cc/c6vcdXJQ/de-otra-vivienda-v2-1.png', seg: 2, audio: 'agua_vecino' },
+                    { label: 'Chorro público, puesto público o pozo público', icon: 'https://i.postimg.cc/xqXP9tdL/chorro-publico-v2-1.png', seg: 2, audio: 'agua_chorro_publico' },
+                    { label: 'Río, manantial o quebrada', icon: 'https://i.postimg.cc/z3ykq0fh/rio-quebrada-v2-1.png', seg: 1, audio: 'agua_rio' },
+                    { label: 'Lluvia', icon: 'https://i.postimg.cc/qgNGpj7n/Lluvia-1.png', seg: 1, audio: 'agua_lluvia' },
+                    { label: 'Otro', icon: 'https://i.postimg.cc/K337QvWH/otro-1.png', seg: 1, audio: 'agua_otro' }
+                ]
+            },
+            {
+                id: 'educacion', title: '¿Hasta qué grado o nivel estudiaste?', type: 'single',
+                options: [
+                    { label: 'Postgrado', icon: 'https://i.postimg.cc/LYbBzZxs/posgrado-1.png', seg: 4, audio: 'edu_postgrado' },
+                    { label: 'Universitario', icon: 'https://i.postimg.cc/1njcpNvf/Universitario-2.png', seg: 4, audio: 'edu_universitario' },
+                    { label: 'Técnico', icon: 'https://i.postimg.cc/XGzcwysX/tecnico-1.png', seg: 3, audio: 'edu_tecnico' },
+                    { label: 'Diversificado', icon: 'https://i.postimg.cc/cgbMQ8Fv/diversificado-1.png', seg: 3, audio: 'edu_diversificado' },
+                    { label: 'Básico', icon: 'https://i.postimg.cc/XGzcwysJ/Chat-GPT-Image-4-sept-2026-01-39-11-p-m-1.png', seg: 2, audio: 'edu_basico' },
+                    { label: 'Primaria', icon: 'https://i.postimg.cc/LYbBzZx5/Chat-GPT-Image-4-sept-2026-01-40-51-p-m-1.png', seg: 2, audio: 'edu_primaria' },
+                    { label: 'Sin escolaridad', icon: 'https://i.postimg.cc/jjv6zrqQ/Sin-escolaridad.png', seg: 1, audio: 'edu_sin_escolaridad' }
+                ]
+            },
+            {
+                id: 'calidadAgua', title: '¿Qué tipo de agua tomas en tu hogar?', type: 'single',
+                options: [
+                    { label: 'Filtrada', icon: 'https://i.postimg.cc/dDh9J40B/ecofiltro-1.png', seg: 4, audio: 'calidad_filtrada' },
+                    { label: 'Potable', icon: 'https://i.postimg.cc/K415mJYM/potable-1.png', seg: 4, audio: 'calidad_potable' },
+                    { label: 'Purificada o envasada', icon: 'https://i.postimg.cc/jCDhRZjJ/Chat-GPT-Image-31-ago-2026-04-46-15-p-m-1.png', seg: 3, audio: 'calidad_purificada' },
+                    { label: 'Hervida', icon: 'https://i.postimg.cc/grxKGN0L/Hervida-1.png', seg: 2, audio: 'calidad_hervida' },
+                    { label: 'Clorada', icon: 'https://i.postimg.cc/XXrgnQvL/Clorada-1.png', seg: 2, audio: 'calidad_clorada' },
+                    { label: 'Otro', icon: 'https://i.postimg.cc/K337QvWH/otro-1.png', seg: 1, audio: 'calidad_otro' },
+                    { label: 'Ninguno', icon: 'https://i.postimg.cc/BPP5NQzz/ninguno-6.png', seg: 1, audio: 'ninguno' }
+                ]
+            },
+            {
+                id: 'salud', title: '¿Dónde recibes atención médica?', type: 'single',
+                options: [
+                    { label: 'Hospital privado', icon: 'https://i.postimg.cc/RqWTvX0G/Hospital-privado-1.png', seg: 4, audio: 'salud_hospital_privado' },
+                    { label: 'Clínica médica particular', icon: 'https://i.postimg.cc/SjnGmDKD/clinica-medica-particular-v2-1.png', seg: 4, audio: 'salud_clinica' },
+                    { label: 'IGSS', icon: 'https://i.postimg.cc/kD2y7f56/IGSS-1.png', seg: 3, audio: 'salud_igss' },
+                    { label: 'Hospital público', icon: 'https://i.postimg.cc/SYYLVN5N/hospital-publico-1.png', seg: 3, audio: 'salud_hospital_publico' },
+                    { label: 'Centro de salud', icon: 'https://i.postimg.cc/JtsQRPh6/centro-de-salud-1.png', seg: 2, audio: 'salud_centro' },
+                    { label: 'Curandero o terapeuta tradicional', icon: 'https://i.postimg.cc/hQQ8MPwt/curandero-v2-1.png', seg: 1, audio: 'salud_curandero' },
+                    { label: 'Farmacia', icon: 'https://i.postimg.cc/PvvbKrcf/farmacia-1.png', seg: 2, audio: 'salud_farmacia' },
+                    { label: 'Comadrona', icon: 'https://i.postimg.cc/p55QkX7W/comadrona-v2-1.png', seg: 1, audio: 'salud_comadrona' },
+                    { label: 'Ninguno', icon: 'https://i.postimg.cc/BPP5NQzz/ninguno-6.png', seg: 1, audio: 'ninguno' },
+                    { label: 'Otro', icon: 'https://i.postimg.cc/K337QvWH/otro-1.png', seg: 1, audio: 'salud_otro' }
+                ]
+            },
+            {
+                id: 'luz', title: '¿Cómo iluminas tu hogar?', type: 'single',
+                options: [
+                    { label: 'Luz comercial (energía eléctrica)', icon: 'https://i.postimg.cc/bSS0LNMq/Luz-comercial-1.png', seg: 4, audio: 'luz_comercial' },
+                    { label: 'Planta eléctrica', icon: 'https://i.postimg.cc/644Vz5S9/planta-electrica-1.png', seg: 3, audio: 'luz_planta' },
+                    { label: 'Panel solar', icon: 'https://i.postimg.cc/8ffdwP3D/panel-solar-1.png', seg: 3, audio: 'luz_panel_solar' },
+                    { label: 'Electricidad de otra vivienda', icon: 'https://i.postimg.cc/s1MJ3w2T/luz-compartida-1.png', seg: 2, audio: 'luz_vecino' },
+                    { label: 'Lámpara de queroseno', icon: 'https://i.postimg.cc/LhJVmNsy/querosen-1.png', seg: 1, audio: 'luz_queroseno' },
+                    { label: 'Candela', icon: 'https://i.postimg.cc/K337QvVx/vela-1.png', seg: 1, audio: 'luz_candela' },
+                    { label: 'Ninguno', icon: 'https://i.postimg.cc/BPP5NQzz/ninguno-6.png', seg: 1, audio: 'ninguno' },
+                    { label: 'Otra', icon: 'https://i.postimg.cc/K337QvWH/otro-1.png', seg: 1, audio: 'luz_otra' }
+                ]
+            },
+            {
+                id: 'piso', title: '¿Qué tipo de piso tienes en tu hogar?', type: 'single',
+                options: [
+                    { label: 'Cerámica, granito o parqué', icon: 'https://i.postimg.cc/CnnCJLtg/Parque-ladrillo-cera-mico-o-granito-1.png', seg: 4, audio: 'piso_ceramica' },
+                    { label: 'Cemento alisado o pulido', icon: 'https://i.postimg.cc/vxx7XHjy/cemento-pulido-1.png', seg: 3, audio: 'piso_cemento_pulido' },
+                    { label: 'Torta de cemento (concreto rústico)', icon: 'https://i.postimg.cc/qgNGpj7Z/Torta-de-cemento-1.png', seg: 2, audio: 'piso_torta' },
+                    { label: 'Ladrillo de barro', icon: 'https://i.postimg.cc/XXrgnQvm/Ladrillo-de-barro-1.png', seg: 2, audio: 'piso_ladrillo_barro' },
+                    { label: 'Ladrillo de cemento', icon: 'https://i.postimg.cc/fkVvMBbF/Ladrillo-de-cemento-1.png', seg: 2, audio: 'piso_ladrillo_cemento' },
+                    { label: 'Tierra, madera u otro', icon: 'https://i.postimg.cc/QVFqj0My/Tierra-madera-y-otro-1.png', seg: 1, audio: 'piso_tierra' }
+                ]
+            },
+            {
+                id: 'pared', title: '¿De qué material son las paredes de tu hogar?', type: 'single',
+                options: [
+                    { label: 'Block o ladrillo', icon: 'https://i.postimg.cc/644Vz5Sx/Chat-GPT-Image-3-sept-2026-02-49-24-p-m-1.png', seg: 4, audio: 'pared_block' },
+                    { label: 'Prefabricado', icon: 'https://i.postimg.cc/K415mJYd/Prefabricado-1.png', seg: 3, audio: 'pared_prefabricado' },
+                    { label: 'Madera', icon: 'https://i.postimg.cc/y33hnY54/madera-1.png', seg: 3, audio: 'pared_madera' },
+                    { label: 'Adobe', icon: 'https://i.postimg.cc/RqWTvX0k/adobe-1.png', seg: 2, audio: 'pared_adobe' },
+                    { label: 'Lámina', icon: 'https://i.postimg.cc/xqXP9tdB/lamina-1.png', seg: 2, audio: 'pared_lamina' },
+                    { label: 'Caña de maíz o bambú', icon: 'https://i.postimg.cc/sGGPKDLk/bamboo-1.png', seg: 1, audio: 'pared_cana' },
+                    { label: 'Bajareque', icon: 'https://i.postimg.cc/fSS75TP6/baje-1.png', seg: 1, audio: 'pared_bajareque' },
+                    { label: 'Otro', icon: 'https://i.postimg.cc/K337QvWH/otro-1.png', seg: 1, audio: 'pared_otro' }
+                ]
+            },
+            {
+                id: 'techo', title: '¿De qué material es el techo de tu hogar?', type: 'single',
+                options: [
+                    { label: 'Terraza de concreto', icon: 'https://i.postimg.cc/G94jbq20/terraza-1.png', seg: 4, audio: 'techo_terraza' },
+                    { label: 'Teja de barro', icon: 'https://i.postimg.cc/LhJVmNXK/teja-1.png', seg: 3, audio: 'techo_teja' },
+                    { label: 'Lámina', icon: 'https://i.postimg.cc/LhJVmNXF/lamina-2.png', seg: 3, audio: 'techo_lamina' },
+                    { label: 'Lámina de asbesto', icon: 'https://i.postimg.cc/bd49rkG6/asbesto-1.png', seg: 2, audio: 'techo_asbesto' },
+                    { label: 'Paja, palma u hoja de caña', icon: 'https://i.postimg.cc/dZZRntfg/techo-de-paja-1.png', seg: 1, audio: 'techo_paja' },
+                    { label: 'Otro', icon: 'https://i.postimg.cc/K337QvWH/otro-1.png', seg: 1, audio: 'techo_otro' }
+                ]
+            },
+            {
+                id: 'combustible', title: '¿Qué utilizas principalmente para cocinar?', type: 'single',
+                options: [
+                    { label: 'Electricidad', icon: 'https://i.postimg.cc/ZvvPjKQD/Estufa-ele-ctrica-1.png', seg: 4, audio: 'comb_electricidad' },
+                    { label: 'Gas propano', icon: 'https://i.postimg.cc/tYLSK8t4/Gas-propano-1-(2).png', seg: 4, audio: 'comb_gas_propano' },
+                    { label: 'Estufa mejorada de leña', icon: 'https://i.postimg.cc/T55jQYsN/Estufa-mejorada-1.png', seg: 3, audio: 'comb_estufa_mejorada' },
+                    { label: 'Carbón', icon: 'https://i.postimg.cc/WqqmSbyW/carbon-1.png', seg: 2, audio: 'comb_carbon' },
+                    { label: 'Queroseno', icon: 'https://i.postimg.cc/yW2yxcJr/Chat-GPT-Image-4-sept-2026-08-47-39-a-m-1.png', seg: 2, audio: 'comb_queroseno' },
+                    { label: 'Leña comprada', icon: 'https://i.postimg.cc/tnndDCcr/Len-a-comprada-1.png', seg: 2, audio: 'comb_lena_comprada' },
+                    { label: 'Leña recolectada', icon: 'https://i.postimg.cc/5QQ5pNrs/Len-a-no-comprada-1.png', seg: 1, audio: 'comb_lena_recolectada' },
+                    { label: 'Ninguno', icon: 'https://i.postimg.cc/BPP5NQzz/ninguno-6.png', seg: 1, audio: 'ninguno' }
+                ]
+            },
+            {
+                id: 'servicioHigienico', title: '¿Qué tipo de baño o servicio sanitario tienes en tu hogar?', type: 'single',
+                options: [
+                    { label: 'Baño con drenaje municipal', icon: 'https://i.postimg.cc/bd49rkGB/Ban-o-lavable-o-cera-mico-Drenaje-municipal-1.png', seg: 4, audio: 'san_bano_drenaje' },
+                    { label: 'Baño con fosa séptica y pozo de absorción', icon: 'https://i.postimg.cc/xJ4yKb6g/Ban-o-lavable-o-cera-mico-Fosa-se-ptica-con-pozo-de-absorcio-n-1.png', seg: 4, audio: 'san_bano_fosa_pozo' },
+                    { label: 'Baño con fosa séptica', icon: 'https://i.postimg.cc/r0PCStff/Ban-o-lavable-o-cera-mico-Fosa-se-ptica-u-nicamente-1.png', seg: 3, audio: 'san_bano_fosa' },
+                    { label: 'Letrina con asiento, fosa séptica y pozo de absorción', icon: 'https://i.postimg.cc/Q9ykpWfY/Letrina-formal-con-asiento-Fosa-se-ptica-con-pozo-de-absorcio-n-1.png', seg: 3, audio: 'san_letrina_fosa_pozo' },
+                    { label: 'Letrina con asiento y fosa séptica', icon: 'https://i.postimg.cc/JD2cbBpx/Letrina-formal-con-asiento-Fosa-se-ptica-u-nicamente-1.png', seg: 2, audio: 'san_letrina_fosa' },
+                    { label: 'Letrina abonera con asiento', icon: 'https://i.postimg.cc/KkHrng0s/Letrina-formal-con-asiento-Letrina-abonera-1.png', seg: 2, audio: 'san_letrina_abonera' },
+                    { label: 'Letrina con asiento y pozo ciego', icon: 'https://i.postimg.cc/DJMdqbxc/Letrina-formal-con-asiento-Pozo-ciego-1.png', seg: 1, audio: 'san_letrina_pozo_ciego' },
+                    { label: 'Letrina sin asiento con fosa séptica', icon: 'https://i.postimg.cc/xJ4yKb6y/Letrina-informal-Fosa-se-ptica-u-nicamente-1.png', seg: 1, audio: 'san_informal_fosa' },
+                    { label: 'Letrina abonera sin asiento', icon: 'https://i.postimg.cc/7GWMgTKn/Letrina-informal-Letrina-abonera-1.png', seg: 1, audio: 'san_informal_abonera' },
+                    { label: 'Letrina sin asiento con pozo ciego', icon: 'https://i.postimg.cc/FdBgjJTb/Letrina-informal-Pozo-ciego-1.png', seg: 1, audio: 'san_informal_pozo_ciego' }
+                ]
+            },
+            {
+                id: 'tratamientoBasura', title: '¿Qué haces con la basura de tu hogar?', type: 'single',
+                options: [
+                    { label: 'La recoge un camión', icon: 'https://i.postimg.cc/Mff0tKLb/camion-recoletor-1.png', seg: 4, audio: 'basura_camion' },
+                    { label: 'La llevas a un depósito municipal', icon: 'https://i.postimg.cc/47SbzhW0/Depo-sito-municipal-1.png', seg: 4, audio: 'basura_deposito' },
+                    { label: 'La reciclas', icon: 'https://i.postimg.cc/jnn6vd14/Reciclada-1.png', seg: 3, audio: 'basura_reciclada' },
+                    { label: 'La tiras en un terreno o lugar abierto', icon: 'https://i.postimg.cc/cgbMQ8FR/Botada-libre-1.png', seg: 1, audio: 'basura_botada' },
+                    { label: 'La quemas', icon: 'https://i.postimg.cc/k6pFxtTW/Quemada-1.png', seg: 2, audio: 'basura_quemada' },
+                    { label: 'La entierras', icon: 'https://i.postimg.cc/34cCgDtg/Enterrada-1.png', seg: 2, audio: 'basura_enterrada' },
+                    { label: 'Otro', icon: 'https://i.postimg.cc/K337QvWH/otro-1.png', seg: 1, audio: 'basura_otro' }
+                ]
+            },
+            {
+                id: 'hacinamiento', title: '¿Cuántas personas duermen en cada cuarto de tu hogar?', type: 'single',
+                options: [
+                    { label: '1 o 2 personas', icon: 'https://i.postimg.cc/gr1Hj8w5/Menor-o-igual-a-dos-personas-por-cuarto-para-dormir-1.png', seg: 4, audio: 'hac_1_2' },
+                    { label: '3 personas', icon: 'https://i.postimg.cc/q66cQMFG/Igual-a-3-personas-por-cuarto-para-dormir-1.png', seg: 3, audio: 'hac_3' },
+                    { label: '4 personas', icon: 'https://i.postimg.cc/S2v7WzgC/Igual-a-4-personas-por-cuarto-para-dormir-1.png', seg: 2, audio: 'hac_4' },
+                    { label: '5 personas o más', icon: 'https://i.postimg.cc/MMFbyj9R/Cinco-personas-o-ma-s-por-cuarto-para-dormir-1.png', seg: 1, audio: 'hac_5' }
+                ]
+            },
+            {
+                id: 'electrodomesticos', title: '¿Qué electrodomésticos tienes en tu hogar?', type: 'multiple',
+                options: [
+                    { label: 'Estufa de gas o eléctrica', icon: 'https://i.postimg.cc/ph6YDnsF/electrica-o-gas-1.png', seg: 4, audio: 'elec_estufa' },
+                    { label: 'Refrigerador', icon: 'https://i.postimg.cc/ctt7T4zm/refrigerador-1.png', seg: 4, audio: 'elec_refrigerador' },
+                    { label: 'Plancha eléctrica', icon: 'https://i.postimg.cc/BPP5NQzN/plancha-1.png', seg: 3, audio: 'elec_plancha' },
+                    { label: 'Radio', icon: 'https://i.postimg.cc/gXTqv6gh/radio-1.png', seg: 2, audio: 'elec_radio' },
+                    { label: 'Computadora', icon: 'https://i.postimg.cc/CnnCJL2m/COMPUTADORA-1.png', seg: 4, audio: 'elec_computadora' },
+                    { label: 'Licuadora', icon: 'https://i.postimg.cc/34cCgDtD/LICUADORA-1.png', seg: 3, audio: 'elec_licuadora' },
+                    { label: 'Celular', icon: 'https://i.postimg.cc/TL4qrWt5/CELULAR-1.png', seg: 3, audio: 'elec_celular' },
+                    { label: 'TV sin cable', icon: 'https://i.postimg.cc/mz5NQFmc/tv-sin-cable-1.png', seg: 2, audio: 'elec_tv_sin_cable' },
+                    { label: 'TV con cable', icon: 'https://i.postimg.cc/34cCgDt4/cable-sin-TV-1.png', seg: 3, audio: 'elec_tv_con_cable' },
+                    { label: 'Ninguno', icon: 'https://i.postimg.cc/BPP5NQzz/ninguno-6.png', seg: 1, audio: 'ninguno' }
+                ]
+            }
+        ];
+
+        /* ==================================================================
+           SECCION FINANCIERA (Paso 1, va antes de la parte social)
+           ------------------------------------------------------------------
+           Basada en la hoja "FEC Vivienda 10.2 grupal": estado de resultados,
+           balance general y plan de inversion. Los numeros 1 a 10 son los
+           mismos de la hoja impresa. Todos los montos son en quetzales.
+           Tipos de bloque:
+             (sin tipo)  -> uno o varios montos en quetzales (campos)
+             numero      -> un contador con botones - y +
+             opciones    -> se elige una sola opcion
+             plan        -> lista de articulos del plan de inversion
+             resultado   -> totales que se calculan solos (no se llenan)
+           ================================================================== */
+        const finSecciones = [
+            {
+                titulo: 'Lo que entra y sale cada mes', subtitulo: 'Tus ventas, ganancias y gastos',
+                bloques: [
+                    { id: 'ventas', num: 1, titulo: '¿Cuánto vendes en un mes?', ayuda: 'Todo lo que te pagan tus clientes en un mes. Si trabajas para alguien, escribe tu sueldo.',
+                      requerido: true, pendiente: 'Escribe cuánto vendes en un mes.',
+                      campos: [{ id: 'ventas' }] },
+                    { id: 'costoVentas', num: 2, titulo: '¿Cuánto gastas en comprar lo que vendes?', ayuda: 'En un mes: la mercadería, los materiales o lo que usas para hacer tu producto.',
+                      campos: [{ id: 'costo_ventas' }] },
+                    { tipo: 'resultado', claves: ['A'] },
+                    { id: 'gastosNegocio', num: 3, titulo: '¿Cuánto pagas cada mes para que funcione tu negocio?', ayuda: 'Solo gastos del negocio, no de tu casa.',
+                      campos: [
+                          { id: 'gn_sueldos', label: 'Pago a trabajadores' },
+                          { id: 'gn_servicios', label: 'Agua, luz y teléfono del negocio' },
+                          { id: 'gn_alquiler', label: 'Alquiler del local' },
+                          { id: 'gn_impuestos', label: 'Impuestos' },
+                          { id: 'gn_otros', label: 'Otros gastos del negocio', descripcion: '¿Cuáles? Ej.: gasolina, bolsas' }
+                      ], subtotal: 'B' },
+                    { tipo: 'resultado', claves: ['C'] },
+                    { id: 'otrosIngresos', num: 4, titulo: '¿Recibes otro dinero cada mes?', ayuda: 'Dinero que no viene de tu negocio.',
+                      campos: [
+                          { id: 'remesas', label: 'Remesas (dinero que te mandan de otro país)' },
+                          { id: 'otros_ingresos', label: 'Otro dinero', descripcion: '¿De dónde viene? Ej.: alquiler de un cuarto' }
+                      ], subtotal: 'D' },
+                    { id: 'gastosFamilia', titulo: '¿Cuánto gasta tu familia en un mes?', ayuda: 'Gastos de tu casa, no del negocio.',
+                      requerido: true, pendiente: 'Escribe por lo menos un gasto de tu casa.',
+                      campos: [
+                          { id: 'gf_comida', label: 'Comida' },
+                          { id: 'gf_vivienda', label: 'Casa (alquiler o pago de la casa)' },
+                          { id: 'gf_vestido', label: 'Ropa y zapatos' },
+                          { id: 'gf_transporte', label: 'Pasajes y transporte' },
+                          { id: 'gf_servicios', label: 'Agua, luz y teléfono de la casa' },
+                          { id: 'gf_medicinas', label: 'Medicinas y doctor' },
+                          { id: 'gf_educacion', label: 'Estudios' },
+                          { id: 'gf_seguros', label: 'Seguros' },
+                          { grupo: 'Pagos de otros préstamos' },
+                          { id: 'cuota_genesis', label: 'Préstamo en Génesis' },
+                          { id: 'cuota_externos', label: 'Préstamo en otro lugar' },
+                          { grupo: 'Otros' },
+                          { id: 'otros_egresos', label: 'Otros gastos de la casa', descripcion: '¿Cuáles? Ej.: celular, fiestas' }
+                      ], subtotal: 'E' },
+                    { tipo: 'resultado', claves: ['F'], destacado: true },
+                    { id: 'dependientes', tipo: 'numero', titulo: '¿Cuántas personas viven de este dinero?', ayuda: 'Cuenta también a los niños.',
+                      requerido: true, pendiente: 'Toca + o − para decir cuántas personas.' }
+                ]
+            },
+            {
+                titulo: 'Lo que tienes y lo que debes', subtitulo: 'Tu dinero guardado, tus cosas y tus deudas',
+                bloques: [
+                    { id: 'efectivo', num: 5, titulo: '¿Cuánto dinero tienes guardado?', ayuda: 'En tu casa, en el banco o en la cooperativa.',
+                      campos: [{ id: 'efectivo' }] },
+                    { id: 'porCobrar', num: 6, titulo: '¿Cuánto dinero te deben?', ayuda: 'Dinero que te van a pagar.',
+                      campos: [
+                          { id: 'cuentas_cobrar', label: 'Clientes que te deben (fiado)' },
+                          { id: 'anticipo_proveedores', label: 'Dinero que adelantaste a quien te vende' }
+                      ] },
+                    { id: 'inventario', num: 7, titulo: '¿Cuánto vale lo que tienes para vender?', ayuda: 'Lo que tienes hoy en tu negocio.',
+                      campos: [
+                          { id: 'inv_materia_prima', label: 'Materiales para hacer tu producto' },
+                          { id: 'inv_en_proceso', label: 'Producto a medio hacer' },
+                          { id: 'inv_terminado', label: 'Producto listo para vender' },
+                          { id: 'inv_comercio', label: 'Mercadería de tu tienda' },
+                          { id: 'animales_venta', label: 'Animales para vender (de menos de 1 año)' },
+                          { id: 'cultivos_venta', label: 'Cosecha para vender' }
+                      ] },
+                    { tipo: 'resultado', claves: ['G'] },
+                    { id: 'bienes', num: 8, titulo: '¿Cuánto valen tus cosas?', ayuda: 'Lo que crees que te darían si las vendieras hoy.',
+                      campos: [
+                          { id: 'inmuebles', label: 'Casa o terreno' },
+                          { id: 'vehiculos', label: 'Carro o moto' },
+                          { id: 'maquinaria', label: 'Máquinas' },
+                          { id: 'mobiliario_equipo', label: 'Muebles y herramientas' },
+                          { id: 'animales_no_venta', label: 'Animales que no son para vender', descripcion: '¿Cuáles? Ej.: 2 vacas' },
+                          { id: 'arboles_frutales', label: 'Árboles de fruta', descripcion: '¿Cuáles? Ej.: 10 de aguacate' }
+                      ], subtotal: 'H' },
+                    { tipo: 'resultado', claves: ['I'] },
+                    { id: 'deudasCorto', num: 9, titulo: '¿Cuánto debes que terminarás de pagar en menos de un año?', ayuda: 'Lo que todavía te falta pagar.',
+                      campos: [
+                          { id: 'cuentas_pagar', label: 'A quien te vende la mercadería' },
+                          { id: 'anticipo_clientes', label: 'Clientes que te pagaron por adelantado' },
+                          { id: 'otras_deudas', label: 'Otras deudas', descripcion: '¿Cuáles? Ej.: tienda, un familiar' }
+                      ], subtotal: 'J' },
+                    { id: 'deudasLargo', num: 10, titulo: '¿Cuánto debes que terminarás de pagar en más de un año?', ayuda: 'Lo que te falta pagar de préstamos largos.',
+                      campos: [{ id: 'deudas_largo_plazo' }] },
+                    { tipo: 'resultado', claves: ['L', 'patrimonio', 'capitalTrabajo'] }
+                ]
+            },
+            {
+                titulo: '¿Para qué quieres el crédito?', subtitulo: 'Tu plan',
+                bloques: [
+                    // label: lo que ve la persona. valor: el nombre oficial que se guarda en la hoja.
+                    { id: 'destino', tipo: 'opciones', titulo: '¿En qué vas a usar el crédito?', ayuda: 'Toca una opción.',
+                      requerido: true, pendiente: 'Toca una de las opciones.',
+                      opciones: [
+                          // icono: un emoji, o el enlace (https://...) de una imagen como las de la parte social.
+                          { label: 'Comprar mercadería o materiales', valor: 'Capital de trabajo', icono: 'https://i.postimg.cc/hfq64TFn/Compra-de-mercaderi-a-o-materiales.jpg' },
+                          { label: 'Comprar máquinas, equipo o muebles', valor: 'Activo fijo', icono: 'https://i.postimg.cc/bdn4jL5q/Comprar-ma-quinas-equipo-o-muebles.jpg' },
+                          { label: 'Las dos: mercadería y equipo', valor: 'Capital de trabajo y activo fijo', icono: 'https://i.postimg.cc/Rqt2zGDk/Los-dos-Mercaderi-a-y-Equipo.jpg' },
+                          { label: 'Siembras o animales', valor: 'Agropecuario', icono: 'https://i.postimg.cc/7bzjyXR8/Siembra-o-animales.jpg' },
+                          { label: 'Arreglar o construir mi casa', valor: 'Vivienda / Infraestructura', icono: 'https://i.postimg.cc/z3h41pQm/Arreglar-o-construir-mi-casa.jpg' },
+                          { label: 'Estudios', valor: 'Crédito educativo', icono: 'https://i.postimg.cc/G9D61z5Z/Estudios.jpg' }
+                      ] },
+                    { id: 'plan', tipo: 'plan', titulo: '¿Qué vas a comprar?', ayuda: 'Si quieres, escribe cada cosa, cuántas y el precio.' },
+                    { id: 'cuota', titulo: '¿Cuánto pagarías de cuota cada mes?', ayuda: 'Si no lo sabes, déjalo vacío.', enBlanco: true,
+                      campos: [{ id: 'cuota_credito' }] }
+                ]
+            }
+        ];
+
+        const finEtiquetas = {
+            A: 'Te queda de la venta',
+            B: 'Total de gastos del negocio',
+            C: 'Ganancia del negocio',
+            D: 'Total de otro dinero',
+            E: 'Total de gastos de la casa',
+            F: 'Lo que te sobra cada mes',
+            G: 'Total en dinero y mercadería',
+            H: 'Total de tus cosas',
+            I: 'Todo lo que tienes',
+            J: 'Deudas de menos de un año',
+            K: 'Deudas de más de un año',
+            L: 'Todo lo que debes',
+            patrimonio: 'Lo que es tuyo, sin deudas',
+            capitalTrabajo: 'Para trabajar, sin deudas cortas',
+            planTotal: 'Total de lo que vas a comprar',
+            indicador: 'La cuota es este % de lo que te sobra'
+        };
+
+        const finBloquesPorId = {};
+        finSecciones.forEach(sec => sec.bloques.forEach(b => { if (b.id) finBloquesPorId[b.id] = b; }));
+        // Bloques obligatorios para continuar a la parte social. En los demas,
+        // si la persona no tiene algo, deja el monto en 0.
+        const finBloquesRequeridos = Object.values(finBloquesPorId).filter(b => b.requerido);
+
+        let finValores = {};
+        let finTocados = {};          // bloques por los que la persona ya paso
+        let finPasoCompleto = false;  // true al pasar de "Tu dinero" a "Tu casa"
+        let finDestino = null;
+        let finPlan = [];
+
+        let respuestas = {};
+        let datosCliente = {};
+
+        /* ==================================================================
+           AUDIOS POR OPCION (sin interfaz)
+           ------------------------------------------------------------------
+           No agregan ningun elemento visible: solo suenan al tocar la opcion
+           para que la persona escuche en voz lo que acaba de seleccionar.
+           Los mp3 van incrustados en base64, asi que no requieren internet.
+           ================================================================== */
+        const AUDIOS_OPCIONES = {
+            "ninguno": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/COMBUSTIBLE%20PARA%20COCINAR/Ninguno.m4a",
+            "agua_tuberia_dentro": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ABASTECIMIENTO%20DE%20AGUA/Tuber%C3%ADa%20dentro%20de%20la%20vivienda%20o%20terreno%201.m4a",
+            "pozo_privado": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ABASTECIMIENTO%20DE%20AGUA/Pozo%20privado.m4a",
+            "agua_camion": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ABASTECIMIENTO%20DE%20AGUA/Cami%C3%B3n%20o%20pipa%201.m4a",
+            "agua_tuberia_fuera": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ABASTECIMIENTO%20DE%20AGUA/Tuber%C3%ADa%20fuera%20de%20la%20vivienda%201.m4a",
+            "agua_vecino": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ABASTECIMIENTO%20DE%20AGUA/De%20otra%20vivienda-vecino.m4a",
+            "agua_chorro_publico": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ABASTECIMIENTO%20DE%20AGUA/Chorro%20public%C3%B3%2C%20puesto%20p%C3%BAblico%2C%20pozo%20p%C3%BAblico%201.m4a",
+            "agua_rio": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ABASTECIMIENTO%20DE%20AGUA/R%C3%ADo%2C%20manantial%2C%20quebrada.m4a",
+            "agua_lluvia": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ABASTECIMIENTO%20DE%20AGUA/Lluvia.m4a",
+            "agua_otro": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ABASTECIMIENTO%20DE%20AGUA/Otro.m4a",
+            "edu_postgrado": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/EDUCACI%C3%93N/Postgrado%202.m4a",
+            "edu_universitario": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/EDUCACI%C3%93N/Universitario%201.m4a",
+            "edu_tecnico": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/EDUCACI%C3%93N/T%C3%A9cnico%201.m4a",
+            "edu_diversificado": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/EDUCACI%C3%93N/Diversificado%202.m4a",
+            "edu_basico": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/EDUCACI%C3%93N/B%C3%A1sica%202.m4a",
+            "edu_primaria": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/EDUCACI%C3%93N/Primaria%202.m4a",
+            "edu_sin_escolaridad": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/EDUCACI%C3%93N/Sin%20escolaridad%201.m4a",
+            "calidad_otro": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ABASTECIMIENTO%20DE%20AGUA/Otro.m4a",
+            "calidad_filtrada": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/CALIDAD%20DE%20AGUA/Filtrada.m4a",
+            "calidad_potable": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/CALIDAD%20DE%20AGUA/Potable.m4a",
+            "calidad_purificada": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/CALIDAD%20DE%20AGUA/Purificada%20o%20envasada.m4a",
+            "calidad_hervida": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/CALIDAD%20DE%20AGUA/Hervida.m4a",
+            "calidad_clorada": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/CALIDAD%20DE%20AGUA/Clorada.m4a",
+            "salud_hospital_privado": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SALUD/Hospital%20privado.m4a",
+            "salud_clinica": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SALUD/Cl%C3%ADnica%20m%C3%A9dica%20particular%201.m4a",
+            "salud_igss": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SALUD/IGSS.m4a",
+            "salud_hospital_publico": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SALUD/Hospital%20p%C3%BAblico.m4a",
+            "salud_centro": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SALUD/Centro%20de%20salud%201.m4a",
+            "salud_curandero": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SALUD/Curandero.m4a",
+            "salud_farmacia": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SALUD/Farmacia.m4a",
+            "salud_comadrona": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SALUD/Comadrona.m4a",
+            "salud_otro": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SALUD/Otro%203.m4a",
+            "luz_comercial": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/LUZ/Luz%20comercial.m4a",
+            "luz_planta": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/LUZ/Planta%20ele%CC%81ctrica.m4a",
+            "luz_panel_solar": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/LUZ/Panel%20solar.m4a",
+            "luz_vecino": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/LUZ/De%20otra%20vivienda-vecino%201.m4a",
+            "luz_queroseno": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/LUZ/La%CC%81mpara%20queroseno.m4a",
+            "luz_candela": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/LUZ/Candela.m4a",
+            "luz_otra": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/LUZ/Otras.m4a",
+            "piso_ceramica": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PISO/Parque%CC%81%2C%20ladrillo%20cera%CC%81mico%20o%20granito_7906.m4a",
+            "piso_cemento_pulido": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PISO/Cemento%20alisado%20y%20pulido_5267.m4a",
+            "piso_torta": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PISO/Torta%20de%20cemento.m4a",
+            "piso_ladrillo_barro": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PISO/Ladrillo%20de%20barro.m4a",
+            "piso_ladrillo_cemento": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PISO/Ladrillo%20de%20cemento.m4a",
+            "piso_tierra": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PISO/Tierra%2C%20madera%20y%20otro.m4a",
+            "pared_block": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PARED/Block-ladrillo.m4a",
+            "pared_prefabricado": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PARED/Prefabricado.m4a",
+            "pared_madera": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PARED/Madera.m4a",
+            "pared_adobe": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PARED/Adobe.m4a",
+            "pared_lamina": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PARED/La%CC%81mina.m4a",
+            "pared_cana": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PARED/Can%CC%83a%20de%20mai%CC%81z-bambu%CC%81.m4a",
+            "pared_bajareque": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PARED/Bajareque.m4a",
+            "pared_otro": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PARED/Otro%201.m4a",
+            "techo_terraza": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PARED/Terraza.m4a",
+            "techo_teja": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PARED/Teja%20de%20barro.m4a",
+            "techo_lamina": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PARED/La%CC%81mina%201.m4a",
+            "techo_asbesto": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PARED/La%CC%81mina%20de%20asbesto.m4a",
+            "techo_paja": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PARED/Paja-palma-hoja%20de%20can%CC%83a_8747.m4a",
+            "techo_otro": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PARED/Otro%202.m4a",
+            "comb_electricidad": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/COMBUSTIBLE%20PARA%20COCINAR/Estufa%20ele%CC%81ctrica.m4a",
+            "comb_gas_propano": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/COMBUSTIBLE%20PARA%20COCINAR/Estufa%20de%20gas%20propano_3666.m4a",
+            "comb_estufa_mejorada": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/COMBUSTIBLE%20PARA%20COCINAR/Estufa%20mejorada.m4a",
+            "comb_carbon": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/COMBUSTIBLE%20PARA%20COCINAR/Carbo%CC%81n.m4a",
+            "comb_queroseno": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/COMBUSTIBLE%20PARA%20COCINAR/Gas%20queroseno.m4a",
+            "comb_lena_comprada": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/COMBUSTIBLE%20PARA%20COCINAR/Len%CC%83a%20comprada.m4a",
+            "comb_lena_recolectada": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/COMBUSTIBLE%20PARA%20COCINAR/Len%CC%83a%20no%20comprada.m4a",
+            "san_bano_drenaje": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SERVICIO%20HIGIENICO/Ban%CC%83o%20lavable%20o%20cera%CC%81mico%2C%20drenaje%20municipal.m4a",
+            "san_bano_fosa_pozo": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SERVICIO%20HIGIENICO/Ban%CC%83o%20lavable%20o%20cera%CC%81mico%2C%20fosa%20se%CC%81ptica%20con%20pozo%20de%20absorcio%CC%81n.m4a",
+            "san_bano_fosa": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SERVICIO%20HIGIENICO/Ban%CC%83o%20lavable%20o%20cera%CC%81mico%2C%20fosa%20se%CC%81ptica%20u%CC%81nicamente.m4a",
+            "san_letrina_fosa_pozo": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SERVICIO%20HIGIENICO/Letrina%20normal%20con%20asiento%2C%20fosa%20se%CC%81ptica%20con%20pozo%20de%20absorcio%CC%81n.m4a",
+            "san_letrina_fosa": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SERVICIO%20HIGIENICO/Letrina%20formal%20con%20asiento%2C%20fosa%20se%CC%81ptica%20u%CC%81nicamente.m4a",
+            "san_letrina_abonera": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SERVICIO%20HIGIENICO/Letrina%20formal%20con%20asiento%2C%20letrina%20o%20o%20era.m4a",
+            "san_letrina_pozo_ciego": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SERVICIO%20HIGIENICO/Letrina%20formal%20con%20asiento%2C%20pozo%20ciego.m4a",
+            "san_informal_fosa": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SERVICIO%20HIGIENICO/Letrina%20informal%2C%20fosa%20se%CC%81ptica%20u%CC%81nicamente.m4a",
+            "san_informal_abonera": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SERVICIO%20HIGIENICO/Letrina%20informal%2C%20letrina%20abonara%CC%81.m4a",
+            "san_informal_pozo_ciego": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/SERVICIO%20HIGIENICO/Letrina%20informal%2C%20pozo%20ciego.m4a",
+            "basura_camion": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/TRATAMIENTO%20DE%20BASURA/Camio%CC%81n%20recolector.m4a",
+            "basura_deposito": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/TRATAMIENTO%20DE%20BASURA/Depo%CC%81sito%20municipal.m4a",
+            "basura_reciclada": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/TRATAMIENTO%20DE%20BASURA/Reciclada.m4a",
+            "basura_botada": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/TRATAMIENTO%20DE%20BASURA/Botada%20libre.m4a",
+            "basura_quemada": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/TRATAMIENTO%20DE%20BASURA/Quemada.m4a",
+            "basura_enterrada": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/TRATAMIENTO%20DE%20BASURA/Enterrada.m4a",
+            "basura_otro": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/TRATAMIENTO%20DE%20BASURA/Otro%203%201.m4a",
+            "hac_1_2": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/HACINAMIENTO/Menor%20o%20igual%20a%20dos%20personas%20por%20cuarto%20para%20dormir.m4a",
+            "hac_3": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/HACINAMIENTO/Igual%20a%20tres%20personas%20por%20cuarto%20para%20dormir.m4a",
+            "hac_4": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/HACINAMIENTO/Igual%20a%20cuatro%20personas%20por%20cuarto%20para%20dormir.m4a",
+            "hac_5": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/HACINAMIENTO/Mayor%20o%20igual%20a%20cinco%20personas%20por%20cuarto%20para%20dormir.m4a",
+            "elec_estufa": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ELECTRODOMESTICOS/Estufa%20de%20gas%20o%20ele%CC%81ctrica.m4a",
+            "elec_refrigerador": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ELECTRODOMESTICOS/Refrigerador%20%28uso%29.m4a",
+            "elec_plancha": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ELECTRODOMESTICOS/Plancha%20ele%CC%81ctrica%20%28uso-.m4a",
+            "elec_radio": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ELECTRODOMESTICOS/Radio.m4a",
+            "elec_computadora": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ELECTRODOMESTICOS/Computadora.m4a",
+            "elec_licuadora": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ELECTRODOMESTICOS/Licuadora.m4a",
+            "elec_celular": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ELECTRODOMESTICOS/Celular.m4a",
+            "elec_tv_sin_cable": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ELECTRODOMESTICOS/TV%20sin%20cable.m4a",
+            "elec_tv_con_cable": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/ELECTRODOMESTICOS/Cable%20sin%20importar%20TV.m4a"
+        };
+
+        // Un solo reproductor para todos los iconos. Chrome en Android permite
+        // pocos reproductores de audio por pagina (unos 75): con uno por icono,
+        // los ultimos de la lista (como electrodomesticos) se quedaban mudos.
+        const audioOpcion = new Audio();
+        audioOpcion.preload = 'auto';
+        let audiosPrecargados = false;
+
+        // Al entrar a la parte social se descargan los audios a la memoria del
+        // navegador, sin crear reproductores, para que suenen al instante.
+        function precargarAudiosOpciones() {
+            if (audiosPrecargados) return;
+            audiosPrecargados = true;
+            new Set(Object.values(AUDIOS_OPCIONES)).forEach(fuente => {
+                if (fuente.startsWith('http')) fetch(fuente, { mode: 'no-cors' }).catch(() => {});
+            });
+        }
+
+        function reproducirAudioOpcion(clave) {
+            const fuente = AUDIOS_OPCIONES[clave];
+            if (!fuente) return;
+
+            // Si el audio de instrucciones siguiera sonando, se corta.
+            detenerInstrucciones();
+
+            audioOpcion.pause();
+            if (audioOpcion.src !== fuente) {
+                audioOpcion.src = fuente;
+            }
+            try { audioOpcion.currentTime = 0; } catch (e) {}
+
+            const intento = audioOpcion.play();
+            if (intento !== undefined) {
+                intento.catch(err => console.log('Audio de opcion bloqueado:', err));
+            }
+        }
+
+        /* ==================================================================
+           AUDIO DE INSTRUCCIONES
+           ------------------------------------------------------------------
+           - Se usa UN solo elemento <audio> precargado (no se crea uno nuevo
+             en cada llamada): así el navegador ya tiene el mp3 en caché
+             cuando se abre el modal y suena de inmediato.
+           - Se "desbloquea" en el primer toque del usuario, porque iOS y
+             Chrome bloquean cualquier play() que no venga de un gesto.
+           - Si aún así el navegador lo bloquea, el boton del modal queda
+             listo para que la persona lo reproduzca manualmente.
+           ================================================================== */
+        const audioInstrucciones = document.getElementById('audio-instrucciones');
+        let audioDisponible = true;
+
+        // Desbloqueo silencioso en el primer gesto del usuario (iOS/Safari).
+        function desbloquearAudio() {
+            if (!audioInstrucciones || !audioInstrucciones.paused) return;
+            audioInstrucciones.muted = true;
+            const intento = audioInstrucciones.play();
+            if (intento !== undefined) {
+                intento.then(() => {
+                    audioInstrucciones.pause();
+                    audioInstrucciones.currentTime = 0;
+                    audioInstrucciones.muted = false;
+                }).catch(() => {
+                    audioInstrucciones.muted = false;
+                });
+            }
+        }
+        document.addEventListener('touchstart', desbloquearAudio, { once: true, passive: true });
+        document.addEventListener('pointerdown', desbloquearAudio, { once: true });
+
+        // Refleja el estado real del audio en el botón del modal.
+        function pintarBotonAudio(estado) {
+            const btn = document.getElementById('btn-audio');
+            const texto = document.getElementById('audio-texto');
+            const icono = document.getElementById('audio-icono');
+            if (!btn || !texto || !icono) return;
+
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            btn.disabled = false;
+
+            if (estado === 'reproduciendo') {
+                texto.innerText = 'Reproduciendo... (toca para detener)';
+                icono.innerHTML = '<span class="audio-wave flex items-end h-5"><span></span><span></span><span></span></span>';
+            } else if (estado === 'error') {
+                texto.innerText = 'Audio no disponible';
+                icono.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 14l4-4m0 4l-4-4M11 5L6 9H2v6h4l5 4V5z"></path></svg>';
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                btn.disabled = true;
+            } else { // 'listo' / pausado
+                texto.innerText = 'Escuchar instrucciones';
+                icono.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M11 5L6 9H2v6h4l5 4V5z"></path></svg>';
+            }
+        }
+
+        if (audioInstrucciones) {
+            audioInstrucciones.addEventListener('ended', () => pintarBotonAudio('listo'));
+            audioInstrucciones.addEventListener('pause', () => {
+                if (!audioInstrucciones.ended) pintarBotonAudio('listo');
+            });
+            // Se dispara solo cuando TODAS las <source> fallaron.
+            audioInstrucciones.addEventListener('error', () => {
+                audioDisponible = false;
+                console.error('No se pudo cargar el audio de instrucciones. Verifica que el repositorio de GitHub sea público y que el nombre del archivo coincida exactamente.');
+                pintarBotonAudio('error');
+            });
+        }
+
+        // El evento 'error' del <audio> puede dispararse ANTES de que el script
+        // registre el listener, asi que tambien se consulta el estado real.
+        function audioNoDisponible() {
+            if (!audioInstrucciones) return true;
+            if (audioInstrucciones.error) return true;
+            // NETWORK_NO_SOURCE (3): ninguna de las <source> pudo cargarse.
+            return audioInstrucciones.networkState === 3;
+        }
+
+        function reproducirInstrucciones() {
+            if (audioNoDisponible()) {
+                audioDisponible = false;
+                pintarBotonAudio('error');
+                return;
+            }
+            try { audioInstrucciones.currentTime = 0; } catch (e) { /* aún no carga: se ignora */ }
+            audioInstrucciones.muted = false;
+            const intento = audioInstrucciones.play();
+            if (intento !== undefined) {
+                intento.then(() => pintarBotonAudio('reproduciendo'))
+                       .catch(err => {
+                           if (err && err.name === 'NotSupportedError' || audioNoDisponible()) {
+                               // El archivo no existe o el formato no se puede reproducir.
+                               audioDisponible = false;
+                               pintarBotonAudio('error');
+                           } else {
+                               // Bloqueo de autoplay: el usuario puede darle al botón.
+                               console.log('El navegador bloqueó el audio:', err);
+                               pintarBotonAudio('listo');
+                           }
+                       });
+            }
+        }
+
+        function detenerInstrucciones() {
+            if (!audioInstrucciones) return;
+            audioInstrucciones.pause();
+            try { audioInstrucciones.currentTime = 0; } catch (e) {}
+        }
+
+        function toggleAudioInstrucciones() {
+            if (audioNoDisponible()) { pintarBotonAudio('error'); return; }
+            if (audioInstrucciones.paused) {
+                reproducirInstrucciones();
+            } else {
+                detenerInstrucciones();
+                pintarBotonAudio('listo');
+            }
+        }
+
+        // Iniciar el formulario validando los campos (Nombres y DPI)
+        function iniciarFormulario() {
+            const nombres = document.getElementById('input-nombres').value.trim();
+            const dpi = document.getElementById('input-dpi').value.trim();
+
+            if (!nombres || dpi.length !== 13) {
+                document.getElementById('modal-error').classList.remove('hidden');
+                return;
+            }
+
+            datosCliente = { nombres: nombres, dpi: dpi };
+
+            // Paso 1: popup con las instrucciones de "Tu dinero". Las de la
+            // parte social (iconos) se muestran despues, antes de esa parte.
+            document.getElementById('modal-instrucciones-fin').classList.remove('hidden');
+            reproducirInstruccionesFin();
+        }
+
+        function cerrarModalError() {
+            document.getElementById('modal-error').classList.add('hidden');
+        }
+
+        function aceptarInstrucciones() {
+            detenerInstrucciones();
+            pintarBotonAudio('listo');
+
+            document.getElementById('modal-instrucciones').classList.add('hidden');
+            document.getElementById('pantalla-inicio').classList.add('hidden');
+            document.getElementById('pantalla-financiera').classList.add('hidden');
+            document.getElementById('pantalla-formulario').classList.remove('hidden');
+            document.getElementById('btn-back').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            // Descarga los audios de los iconos para que suenen al instante.
+            precargarAudiosOpciones();
+        }
+
+        function volverInicio() {
+            detenerInstrucciones();
+            detenerInstruccionesFin();
+            document.getElementById('pantalla-formulario').classList.add('hidden');
+            document.getElementById('pantalla-financiera').classList.add('hidden');
+            document.getElementById('pantalla-inicio').classList.remove('hidden');
+            document.getElementById('btn-back').classList.add('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Flecha del encabezado: de la parte social regresa a la financiera,
+        // y de la financiera regresa a los datos del integrante.
+        function volverAtras() {
+            const social = document.getElementById('pantalla-formulario');
+            if (!social.classList.contains('hidden')) {
+                detenerInstrucciones();
+                social.classList.add('hidden');
+                document.getElementById('pantalla-financiera').classList.remove('hidden');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                volverInicio();
+            }
+        }
+
+        function renderizarFormulario() {
+            const container = document.getElementById('form-container');
+
+            container.className = 'bg-white rounded-t-[32px] pt-8 px-4 pb-24 mt-2 shadow-sm min-h-screen';
+            container.innerHTML = '';
+
+            formData.forEach((categoria, catIndex) => {
+                const isMultiple = categoria.type === 'multiple';
+
+                const section = document.createElement('div');
+                section.id = `seccion-${catIndex}`;
+                section.className = 'mb-10';
+
+                let tipoTexto = isMultiple ? "Puedes seleccionar varias opciones" : "Selecciona una opción";
+
+                section.innerHTML = `
+                    <div class="flex flex-col items-center justify-center text-center mb-6">
+                        <h2 class="text-[15px] font-medium text-gray-700 mb-3">${categoria.title}</h2>
+                        <span id="badge-${categoria.id}" class="text-[12px] font-normal px-5 py-1.5 rounded-full border border-gray-300 text-gray-400 transition-colors duration-300">
+                            ${tipoTexto}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2" id="grid-${categoria.id}">
+                    </div>
+                `;
+
+                container.appendChild(section);
+
+                const grid = document.getElementById(`grid-${categoria.id}`);
+
+                categoria.options.forEach((opcion, optIndex) => {
+                    const card = document.createElement('div');
+                    card.id = `card-${categoria.id}-${optIndex}`;
+                    card.className = 'rounded-2xl p-2 border-[1.5px] border-transparent transition-all duration-200 cursor-pointer flex flex-col items-center justify-start text-center h-[120px]';
+
+                    const imageHtml = opcion.icon
+                        ? `<img src="${opcion.icon}" class="w-12 h-12 object-contain mx-auto mb-2" alt="${opcion.label}">`
+                        : `<div class="text-3xl mb-2">${opcion.emoji}</div>`;
+
+                    card.innerHTML = `
+                        ${imageHtml}
+                        <span class="text-[10.5px] font-medium text-gray-500 leading-tight">${opcion.label}</span>
+                    `;
+
+                    card.onclick = () => seleccionarOpcion(categoria.id, optIndex, isMultiple, catIndex);
+                    grid.appendChild(card);
+                });
+            });
+        }
+
+        function seleccionarOpcion(categoriaId, opcionIndex, isMultiple, catIndex) {
+            const categoria = formData.find(c => c.id === categoriaId);
+            const opcion = categoria.options[opcionIndex];
+
+            if (!respuestas[categoriaId]) {
+                respuestas[categoriaId] = isMultiple ? [] : null;
+            }
+
+            if (isMultiple) {
+                if (opcion.label === 'Ninguno') {
+                    respuestas[categoriaId] = [opcionIndex];
+                } else {
+                    let actuales = respuestas[categoriaId];
+                    const indexNinguno = categoria.options.findIndex(o => o.label === 'Ninguno');
+                    if (indexNinguno !== -1 && actuales.includes(indexNinguno)) actuales = [];
+
+                    if (actuales.includes(opcionIndex)) {
+                        actuales = actuales.filter(i => i !== opcionIndex);
+                    } else {
+                        if (opcion.label === 'TV sin cable') actuales = actuales.filter(i => categoria.options[i].label !== 'TV con cable');
+                        if (opcion.label === 'TV con cable') actuales = actuales.filter(i => categoria.options[i].label !== 'TV sin cable');
+
+                        actuales.push(opcionIndex);
+                    }
+                    respuestas[categoriaId] = actuales;
+                }
+            } else {
+                respuestas[categoriaId] = opcionIndex;
+
+                setTimeout(() => {
+                    const nextSection = document.getElementById(`seccion-${catIndex + 1}`);
+                    if (nextSection) {
+                        const offset = 150;
+                        const bodyRect = document.body.getBoundingClientRect().top;
+                        const elementRect = nextSection.getBoundingClientRect().top;
+                        const elementPosition = elementRect - bodyRect;
+                        const offsetPosition = elementPosition - offset;
+
+                        window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+                    }
+                }, 400);
+            }
+
+            // Reproduce el audio de la opcion (si tiene) solo cuando queda
+            // seleccionada, nunca al deseleccionarla. Va dentro del mismo
+            // gesto del usuario, que es lo que exigen los navegadores moviles.
+            if (opcion.audio) {
+                const quedaSeleccionada = isMultiple
+                    ? respuestas[categoriaId].includes(opcionIndex)
+                    : respuestas[categoriaId] === opcionIndex;
+                if (quedaSeleccionada) reproducirAudioOpcion(opcion.audio);
+            }
+
+            actualizarUI();
+            actualizarProgreso();
+        }
+
+        function actualizarUI() {
+            formData.forEach(categoria => {
+                const resp = respuestas[categoria.id];
+
+                const badge = document.getElementById(`badge-${categoria.id}`);
+                const hasSelection = categoria.type === 'multiple'
+                    ? (resp && resp.length > 0)
+                    : (resp !== undefined && resp !== null);
+
+                if (badge) {
+                    if (hasSelection) {
+                        badge.classList.remove('border-gray-300', 'text-gray-400');
+                        badge.classList.add('border-[#006DC4]', 'text-[#006DC4]');
+                    } else {
+                        badge.classList.remove('border-[#006DC4]', 'text-[#006DC4]');
+                        badge.classList.add('border-gray-300', 'text-gray-400');
+                    }
+                }
+
+                categoria.options.forEach((_, optIndex) => {
+                    const card = document.getElementById(`card-${categoria.id}-${optIndex}`);
+                    if (!card) return;
+                    const isSelected = categoria.type === 'multiple'
+                        ? (resp && resp.includes(optIndex))
+                        : (resp === optIndex);
+
+                    if (isSelected) {
+                        card.classList.add('border-[#006DC4]', 'bg-blue-50/30');
+                        card.classList.remove('border-transparent');
+                    } else {
+                        card.classList.remove('border-[#006DC4]', 'bg-blue-50/30');
+                        card.classList.add('border-transparent');
+                    }
+                });
+            });
+        }
+
+        function porcentajeSocial() {
+            const total = formData.length;
+            let completadas = 0;
+
+            formData.forEach(cat => {
+                if (cat.type === 'multiple') {
+                    if (respuestas[cat.id] && respuestas[cat.id].length > 0) completadas++;
+                } else {
+                    if (respuestas[cat.id] !== undefined && respuestas[cat.id] !== null) completadas++;
+                }
+            });
+
+            return Math.round((completadas / total) * 100);
+        }
+
+        function actualizarProgreso() {
+            const porcentaje = porcentajeSocial();
+            actualizarAvanceGeneral();
+
+            const btn = document.getElementById('btn-evaluar');
+            if (porcentaje === 100) {
+                btn.disabled = false;
+                btn.classList.remove('bg-gray-200', 'text-gray-400');
+                btn.classList.add('bg-[#006DC4]', 'text-white', 'shadow-lg');
+            } else {
+                btn.disabled = true;
+                btn.classList.add('bg-gray-200', 'text-gray-400');
+                btn.classList.remove('bg-[#006DC4]', 'text-white', 'shadow-lg');
+            }
+        }
+
+        function obtenerInfoDispositivo() {
+            const userAgent = navigator.userAgent;
+            let so = "Desconocido";
+            let tipo = "Escritorio";
+
+            if (/android/i.test(userAgent)) so = "Android";
+            else if (/iPad|iPhone|iPod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) so = "iOS";
+            else if (/Win/.test(userAgent)) so = "Windows";
+            else if (/Mac/.test(userAgent)) so = "Mac";
+
+            if (/Mobi|Android|iPhone/i.test(userAgent)) tipo = "Móvil";
+            else if (/Tablet|iPad/i.test(userAgent)) tipo = "Tablet";
+
+            return `${so} (${tipo}) - ${window.screen.width}x${window.screen.height}`;
+        }
+
+        function enviarDatos() {
+            let respuestasDetalle = {};
+            let votosSegmentos = { 1: 0, 2: 0, 3: 0, 4: 0 };
+
+            formData.forEach(cat => {
+                let seleccion = respuestas[cat.id];
+                if (Array.isArray(seleccion)) {
+                    let labels = seleccion.map(indexOpt => cat.options[indexOpt].label).join(", ");
+                    respuestasDetalle[cat.id] = labels;
+                    seleccion.forEach(indexOpt => {
+                        let segDeOpcion = cat.options[indexOpt].seg;
+                        votosSegmentos[segDeOpcion]++;
+                    });
+                } else if (seleccion !== null && seleccion !== undefined) {
+                    respuestasDetalle[cat.id] = cat.options[seleccion].label;
+                    let segDeOpcion = cat.options[seleccion].seg;
+                    votosSegmentos[segDeOpcion]++;
+                } else {
+                    respuestasDetalle[cat.id] = "";
+                }
+            });
+
+            // Votación por Mayoría (gana el segmento con más votos, en empate gana el menor)
+            let maxVotos = -1;
+            let segmentoGanador = 1;
+
+            for (let s = 1; s <= 4; s++) {
+                if (votosSegmentos[s] > maxVotos) {
+                    maxVotos = votosSegmentos[s];
+                    segmentoGanador = s;
+                }
+            }
+
+            let textoSegmento = "";
+            if (segmentoGanador === 1) textoSegmento = "Fase Inicial - Segmento 1";
+            else if (segmentoGanador === 2) textoSegmento = "Fase Intermedia - Segmento 2";
+            else if (segmentoGanador === 3) textoSegmento = "Fase Avanzada - Segmento 3";
+            else if (segmentoGanador === 4) textoSegmento = "Fase Óptima - Segmento 4";
+
+            // El cliente ve su etapa; a la hoja se sigue enviando el segmento interno.
+            const etapasCliente = { 1: "Etapa inicial", 2: "Etapa de avance", 3: "Etapa de crecimiento", 4: "Etapa de consolidación" };
+            document.getElementById('modal-segmento').innerText = etapasCliente[segmentoGanador];
+
+            const infoDispositivo = obtenerInfoDispositivo();
+
+            const payload = {
+                nombres: datosCliente.nombres,
+                dpi: datosCliente.dpi,
+                respuestasDetalle: respuestasDetalle,
+                segmento: textoSegmento,
+                dispositivo: infoDispositivo,
+                financiero: datosFinancierosParaEnvio()
+            };
+
+            const urlGoogleScript = "https://script.google.com/macros/s/AKfycbx8vXd1da7ZMFYpVwFWHfzWbblwuaSjGgHhXyy51_C0orEbwxfWJ44xsUSRXus_Sr5F/exec";
+
+            fetch(urlGoogleScript, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            }).then(() => {
+                console.log("Datos enviados correctamente.");
+            }).catch(error => {
+                console.error("Error al enviar:", error);
+            });
+
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function cerrarModal() {
+            document.getElementById('modal').classList.add('hidden');
+
+            respuestas = {};
+            datosCliente = {};
+            actualizarUI();
+            actualizarProgreso();
+
+            document.getElementById('input-nombres').value = '';
+            document.getElementById('input-dpi').value = '';
+
+            reiniciarFinanzas();
+            volverInicio();
+        }
+
+        /* ==================================================================
+           SECCION FINANCIERA: dibujo, calculos, validacion y envio
+           ================================================================== */
+        const formatoQuetzales = (() => {
+            try {
+                return new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+            } catch (e) { return null; }
+        })();
+
+        function conMiles(texto) {
+            if (texto === '' || texto === null || texto === undefined) return '';
+            const n = Number(texto);
+            return isNaN(n) ? '' : n.toLocaleString('en-US');
+        }
+
+        function formatoQ(n) {
+            if (formatoQuetzales) return formatoQuetzales.format(n);
+            return (n < 0 ? '-Q' : 'Q') + conMiles(Math.abs(Math.round(n)));
+        }
+
+        function escaparHtml(texto) {
+            return String(texto || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // Montos enteros en quetzales: solo digitos y sin ceros a la izquierda.
+        function soloDigitos(texto) {
+            return String(texto || '').replace(/[^0-9]/g, '').replace(/^0+(?=[0-9])/, '');
+        }
+
+        const claseInputFin = 'border border-gray-300 rounded-lg focus:outline-none focus:border-[#006DC4] focus:ring-1 focus:ring-[#006DC4] transition-colors bg-white text-gray-800 placeholder-gray-300';
+
+        // Los montos empiezan en 0 (data-cero): al tocarlos el 0 se borra para
+        // escribir, y si se dejan vacios vuelven a 0. enBlanco: empieza vacio.
+        function htmlInputMonto(campo, grande, enBlanco) {
+            return `
+                <div class="relative ${grande ? 'w-full' : 'w-[46%] shrink-0'}">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[14px] pointer-events-none">Q</span>
+                    <input id="fin-${campo}" data-campo="${campo}" ${enBlanco ? '' : 'data-cero="1" value="0"'} type="text" inputmode="numeric" pattern="[0-9]*" maxlength="9" autocomplete="off" placeholder="0"
+                        oninput="finOnInput(this)" onfocus="finOnFocus(this)" onblur="finOnBlur(this)"
+                        class="${claseInputFin} w-full pl-8 pr-3 ${grande ? 'py-3' : 'py-2.5'} text-[15px] text-right">
+                </div>`;
+        }
+
+        // Icono de una opcion: imagen si es un enlace, o emoji. mix-blend-multiply
+        // hace que el fondo blanco de las imagenes tome el color de la tarjeta.
+        function htmlIconoOpcion(icono) {
+            if (!icono) return '';
+            if (/^https?:/.test(icono)) return `<img src="${icono}" alt="" class="w-16 h-16 object-contain mx-auto mb-2 mix-blend-multiply">`;
+            return `<span class="block h-12 mb-2 text-[30px] leading-[48px] whitespace-nowrap" aria-hidden="true">${icono}</span>`;
+        }
+
+        function htmlBloqueFin(b) {
+            if (b.tipo === 'resultado') {
+                const filas = b.claves.map(c => `
+                    <div class="flex justify-between items-center gap-3 ${b.destacado ? 'py-1' : 'py-0.5'}">
+                        <span class="${b.destacado ? 'text-[14px] font-semibold' : 'text-[12.5px]'} text-[#006DC4]">${finEtiquetas[c]}</span>
+                        <span class="fin-val-${c} ${b.destacado ? 'text-[18px]' : 'text-[14px]'} font-bold text-[#006DC4] whitespace-nowrap">Q0</span>
+                    </div>`).join('');
+                const aviso = b.claves.includes('F')
+                    ? '<p id="fin-aviso-F" class="hidden text-[11px] text-red-500 mt-1">Gastas más de lo que ganas. Revisa si los números están bien.</p>'
+                    : '';
+                return `<div class="bg-[#E6F4FF] rounded-2xl px-4 py-3 mb-3">${filas}${aviso}</div>`;
+            }
+
+            const badge = `<span id="fin-badge-${b.id}" class="shrink-0 w-6 h-6 rounded-full bg-[#E6F4FF] text-[#006DC4] text-[12px] font-semibold flex items-center justify-center transition-colors">${b.num || '•'}</span>`;
+
+            let cuerpo = '';
+            if (b.tipo === 'numero') {
+                cuerpo = `
+                    <div class="flex items-center justify-center gap-4">
+                        <button type="button" onclick="finPaso('${b.id}', -1)" class="w-11 h-11 rounded-full border border-gray-300 text-[22px] text-gray-500 leading-none active:bg-gray-100">−</button>
+                        <input id="fin-${b.id}" data-campo="${b.id}" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" placeholder="0"
+                            oninput="finOnInput(this)" data-sin-avance="1" class="${claseInputFin} w-20 py-2.5 text-[18px] text-center">
+                        <button type="button" onclick="finPaso('${b.id}', 1)" class="w-11 h-11 rounded-full border border-gray-300 text-[22px] text-gray-500 leading-none active:bg-gray-100">+</button>
+                    </div>`;
+            } else if (b.tipo === 'opciones') {
+                // Tarjetas con icono arriba y texto abajo, como las de la parte social.
+                cuerpo = `<div class="grid grid-cols-3 gap-2">${b.opciones.map((op, i) => `
+                    <button type="button" id="fin-op-${b.id}-${i}" onclick="finElegirDestino(${i})"
+                        class="rounded-2xl border-[1.5px] border-gray-200 p-2 min-h-[120px] flex flex-col items-center justify-start text-center text-[11px] font-medium text-gray-600 leading-tight transition-all duration-200">
+                        ${htmlIconoOpcion(op.icono)}
+                        <span>${op.label}</span>
+                    </button>`).join('')}
+                    </div>`;
+            } else if (b.tipo === 'plan') {
+                cuerpo = `
+                    <div id="fin-plan-lista"></div>
+                    <button type="button" id="fin-plan-agregar" onclick="agregarItemPlan()"
+                        class="w-full border border-dashed border-[#006DC4] text-[#006DC4] rounded-xl py-2.5 text-[13px] font-medium mt-1">+ Agregar otra compra</button>
+                    <div class="flex justify-between items-center border-t border-dashed border-gray-200 mt-3 pt-3">
+                        <span class="text-[12px] text-gray-500">${finEtiquetas.planTotal}</span>
+                        <span class="fin-val-planTotal text-[14px] font-semibold text-gray-700">Q0</span>
+                    </div>`;
+            } else if (b.campos.length === 1 && !b.campos[0].label) {
+                cuerpo = htmlInputMonto(b.campos[0].id, true, b.enBlanco);
+            } else {
+                cuerpo = b.campos.map(c => {
+                    if (c.grupo) return `<p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mt-3 mb-1">${c.grupo}</p>`;
+                    let fila = `
+                        <div class="flex items-center gap-3 py-1">
+                            <label for="fin-${c.id}" class="flex-1 text-[13px] text-gray-600 leading-tight">${c.label}</label>
+                            ${htmlInputMonto(c.id, false)}
+                        </div>`;
+                    // Campo para escribir que es (aparece cuando el monto es mayor a 0).
+                    if (c.descripcion) {
+                        fila += `
+                        <div id="fin-desc-${c.id}" class="hidden pb-1">
+                            <input type="text" data-texto="${c.id}_desc" oninput="finValores[this.dataset.texto] = this.value" placeholder="${c.descripcion}" autocomplete="off"
+                                class="${claseInputFin} w-full px-3 py-2.5 text-[13px] bg-[#F5FAFF]">
+                        </div>`;
+                    }
+                    return fila;
+                }).join('');
+            }
+
+            const subtotal = b.subtotal ? `
+                <div class="flex justify-between items-center border-t border-dashed border-gray-200 mt-3 pt-3">
+                    <span class="text-[12px] text-gray-500">${finEtiquetas[b.subtotal]}</span>
+                    <span class="fin-val-${b.subtotal} text-[14px] font-semibold text-gray-700">Q0</span>
+                </div>` : '';
+
+            return `
+                <div id="fin-bloque-${b.id}" ${b.tipo === 'opciones' ? 'data-parada="1"' : ''} class="rounded-2xl border-[1.5px] border-gray-200 p-4 mb-3 transition-colors duration-300">
+                    <div class="flex items-start gap-3 mb-3">
+                        ${badge}
+                        <div class="flex-1 min-w-0">
+                            <p class="text-[14px] font-medium text-gray-700 leading-snug">${b.titulo}</p>
+                            ${b.ayuda ? `<p class="text-[11px] text-gray-400 mt-0.5 leading-snug">${b.ayuda}</p>` : ''}
+                        </div>
+                    </div>
+                    ${cuerpo}
+                    ${subtotal}
+                    <p id="fin-pend-${b.id}" class="hidden text-[11px] text-orange-500 mt-2">${b.pendiente || 'Falta responder esta pregunta.'}</p>
+                </div>`;
+        }
+
+        function htmlResumenFin() {
+            const claves = ['A', 'B', 'C', 'D', 'E', 'F', 'I', 'L', 'patrimonio', 'capitalTrabajo', 'indicador'];
+            const filas = claves.map(c => `
+                <div class="flex justify-between items-center gap-3 ${c === 'F' ? 'border-y border-gray-100 py-2 my-1' : 'py-1'}">
+                    <span class="text-[12.5px] ${c === 'F' ? 'font-semibold text-gray-800' : 'text-gray-500'}">${finEtiquetas[c]}</span>
+                    <span class="fin-val-${c} text-[13.5px] font-semibold text-gray-800 whitespace-nowrap">Q0</span>
+                </div>`).join('');
+            return `
+                <div id="fin-resumen" class="mt-8 border-[1.5px] border-gray-200 rounded-2xl p-4">
+                    <h3 class="text-[14px] font-semibold text-gray-700 mb-2">Resumen de tu dinero</h3>
+                    ${filas}
+                </div>`;
+        }
+
+        function renderizarFinanzas() {
+            const cont = document.getElementById('fin-container');
+            let html = `
+                <div class="text-center">
+                    <span class="text-[11px] font-medium text-[#006DC4] bg-[#E6F4FF] px-3 py-1 rounded-full">Paso 1 de 2</span>
+                    <h2 class="text-[16px] font-semibold text-gray-800 mt-3">Tu dinero</h2>
+                    <p class="text-[12px] text-gray-500 mt-1 leading-relaxed">Escribe solo números, en quetzales.<br>Si no tienes algo, déjalo en <b>0</b>.</p>
+                </div>`;
+            finSecciones.forEach(sec => {
+                html += `
+                    <div class="text-center mt-8 mb-4">
+                        <h3 class="text-[15px] font-medium text-gray-700">${sec.titulo}</h3>
+                        <p class="text-[11px] text-gray-400 mt-0.5">${sec.subtitulo}</p>
+                    </div>`;
+                sec.bloques.forEach(b => { html += htmlBloqueFin(b); });
+            });
+            html += htmlResumenFin();
+            cont.innerHTML = html;
+            renderizarPlan();
+        }
+
+        function nuevoItemPlan() {
+            return { descripcion: '', cantidad: '', costo_unitario: '', observaciones: '' };
+        }
+
+        function renderizarPlan() {
+            const lista = document.getElementById('fin-plan-lista');
+            if (!lista) return;
+            lista.innerHTML = finPlan.map((it, i) => `
+                <div class="bg-gray-50 rounded-xl p-3 mb-2">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-[12px] font-medium text-gray-500">Compra ${i + 1}</span>
+                        ${finPlan.length > 1 ? `<button type="button" onclick="quitarItemPlan(${i})" class="text-[11px] text-gray-400 px-2 py-0.5">Quitar</button>` : ''}
+                    </div>
+                    <input type="text" value="${escaparHtml(it.descripcion)}" oninput="finPlanCampo(${i}, 'descripcion', this)" autocomplete="off"
+                        placeholder="¿Qué vas a comprar? Ej.: sacos de maíz" class="${claseInputFin} w-full px-3 py-2.5 text-[14px] mb-2">
+                    <div class="flex gap-2 mb-2">
+                        <div class="w-[34%]">
+                            <label class="block text-[10px] text-gray-400 mb-0.5">¿Cuántas?</label>
+                            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" value="${escaparHtml(it.cantidad)}" oninput="finPlanCampo(${i}, 'cantidad', this)" autocomplete="off" placeholder="0"
+                                class="${claseInputFin} w-full px-3 py-2.5 text-[15px] text-right">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-[10px] text-gray-400 mb-0.5">Precio de cada una</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[14px] pointer-events-none">Q</span>
+                                <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="9" value="${conMiles(it.costo_unitario)}" oninput="finPlanCampo(${i}, 'costo_unitario', this)" onfocus="finOnFocus(this)" onblur="finOnBlur(this)" autocomplete="off" placeholder="0"
+                                    class="${claseInputFin} w-full pl-8 pr-3 py-2.5 text-[15px] text-right">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center text-[12px] mb-2">
+                        <span class="text-gray-500">Total</span>
+                        <span id="fin-plan-total-${i}" class="font-semibold text-gray-700">Q0</span>
+                    </div>
+                    <input type="text" value="${escaparHtml(it.observaciones)}" oninput="finPlanCampo(${i}, 'observaciones', this)" autocomplete="off"
+                        placeholder="Notas (si quieres)" class="${claseInputFin} w-full px-3 py-2 text-[13px]">
+                </div>`).join('');
+            document.getElementById('fin-plan-agregar').classList.toggle('hidden', finPlan.length >= 9);
+            // El teclado del celular muestra la tecla "Siguiente" en todos los campos.
+            document.querySelectorAll('#fin-container input').forEach(i => i.setAttribute('enterkeyhint', 'next'));
+            actualizarFinanzas();
+        }
+
+        function agregarItemPlan() {
+            if (finPlan.length >= 9) return;
+            finPlan.push(nuevoItemPlan());
+            renderizarPlan();
+        }
+
+        function quitarItemPlan(i) {
+            finPlan.splice(i, 1);
+            if (finPlan.length === 0) finPlan.push(nuevoItemPlan());
+            renderizarPlan();
+        }
+
+        function finPlanCampo(i, campo, el) {
+            if (campo === 'cantidad' || campo === 'costo_unitario') {
+                const limpio = soloDigitos(el.value);
+                if (el.value !== limpio) el.value = limpio;
+                finPlan[i][campo] = limpio;
+            } else {
+                finPlan[i][campo] = el.value;
+            }
+            actualizarFinanzas();
+        }
+
+        function finOnInput(el) {
+            const limpio = soloDigitos(el.value);
+            if (el.value !== limpio) el.value = limpio;
+            finValores[el.dataset.campo] = limpio;
+            actualizarFinanzas();
+        }
+
+        // Mientras se escribe el monto va sin comas; al salir se ve como 15,000.
+        // En los montos que empiezan en 0, el 0 se quita al tocar y vuelve si
+        // la persona no escribe nada.
+        function finOnFocus(el) {
+            el.value = el.value.replace(/,/g, '');
+            if (el.dataset.cero && el.value === '0') el.value = '';
+        }
+        function finOnBlur(el) {
+            let valor = el.value.replace(/,/g, '');
+            if (valor === '' && el.dataset.cero) valor = '0';
+            el.value = conMiles(valor);
+        }
+
+        function finPaso(id, delta) {
+            const actual = finValores[id];
+            const nuevo = (actual === undefined || actual === '')
+                ? (delta > 0 ? 1 : 0)
+                : Math.min(99, Math.max(0, parseInt(actual, 10) + delta));
+            finValores[id] = String(nuevo);
+            document.getElementById('fin-' + id).value = String(nuevo);
+            actualizarFinanzas();
+        }
+
+        function finElegirDestino(i) {
+            finDestino = i;
+            actualizarFinanzas();
+            // Igual que en la parte social: despues de elegir, baja al siguiente dato.
+            setTimeout(() => irAlSiguienteDato(document.getElementById('fin-bloque-destino'), false), 400);
+        }
+
+        function finNum(id) {
+            const n = parseInt(soloDigitos(finValores[id]), 10);
+            return isNaN(n) ? 0 : n;
+        }
+
+        function finSumaBloques(ids) {
+            return ids.reduce((suma, id) =>
+                suma + finBloquesPorId[id].campos.reduce((s, c) => s + (c.id ? finNum(c.id) : 0), 0), 0);
+        }
+
+        function costoItemPlan(it) {
+            return (parseInt(it.cantidad, 10) || 0) * (parseInt(it.costo_unitario, 10) || 0);
+        }
+
+        // Mismas formulas de la hoja impresa (letras A a L).
+        function calcularFinanzas() {
+            const r = {};
+            r.A = finNum('ventas') - finNum('costo_ventas');
+            r.B = finSumaBloques(['gastosNegocio']);
+            r.C = r.A - r.B;
+            r.D = finSumaBloques(['otrosIngresos']);
+            r.E = finSumaBloques(['gastosFamilia']);
+            r.F = r.C + r.D - r.E;
+            r.G = finSumaBloques(['efectivo', 'porCobrar', 'inventario']);
+            r.H = finSumaBloques(['bienes']);
+            r.I = r.G + r.H;
+            r.J = finSumaBloques(['deudasCorto']);
+            r.K = finSumaBloques(['deudasLargo']);
+            r.L = r.J + r.K;
+            r.patrimonio = r.I - r.L;
+            r.capitalTrabajo = r.G - r.J;
+            r.planTotal = finPlan.reduce((s, it) => s + costoItemPlan(it), 0);
+            // (Cuota prestamo / Excedente familiar): solo tiene sentido con excedente positivo.
+            const cuota = finNum('cuota_credito');
+            r.indicador = (cuota > 0 && r.F > 0) ? cuota / r.F : null;
+            return r;
+        }
+
+        // Montos: cuenta como respondido si tiene algo mayor a 0.
+        function finRespondido(b) {
+            if (b.tipo === 'opciones') return finDestino !== null;
+            if (b.tipo === 'numero') return (finValores[b.id] || '') !== '';
+            return b.campos.some(c => c.id && finNum(c.id) > 0);
+        }
+
+        function actualizarFinanzas() {
+            const r = calcularFinanzas();
+
+            Object.keys(finEtiquetas).forEach(clave => {
+                const valor = r[clave];
+                document.querySelectorAll('.fin-val-' + clave).forEach(el => {
+                    if (clave === 'indicador') {
+                        el.innerText = valor === null ? '—' : Math.round(valor * 100) + '%';
+                    } else {
+                        el.innerText = formatoQ(valor);
+                        el.style.color = valor < 0 ? '#EF4444' : '';
+                    }
+                });
+            });
+
+            const aviso = document.getElementById('fin-aviso-F');
+            if (aviso) aviso.classList.toggle('hidden', !(r.F < 0));
+
+            // "¿Cuáles?" solo aparece cuando ya escribió un monto en ese renglón.
+            Object.values(finBloquesPorId).forEach(b => (b.campos || []).forEach(c => {
+                if (!c.descripcion) return;
+                const caja = document.getElementById('fin-desc-' + c.id);
+                if (caja) caja.classList.toggle('hidden', finNum(c.id) === 0);
+            }));
+
+            finPlan.forEach((it, i) => {
+                const el = document.getElementById('fin-plan-total-' + i);
+                if (el) el.innerText = formatoQ(costoItemPlan(it));
+            });
+
+            // Numero en azul cuando el bloque ya tiene respuesta.
+            Object.values(finBloquesPorId).forEach(b => {
+                const respondido = b.tipo === 'plan' ? r.planTotal > 0 : finRespondido(b);
+                const badge = document.getElementById('fin-badge-' + b.id);
+                if (badge) {
+                    badge.classList.toggle('bg-[#006DC4]', respondido);
+                    badge.classList.toggle('text-white', respondido);
+                    badge.classList.toggle('bg-[#E6F4FF]', !respondido);
+                    badge.classList.toggle('text-[#006DC4]', !respondido);
+                }
+                if (respondido) quitarPendiente(b.id);
+            });
+
+            finBloquesPorId.destino.opciones.forEach((_, i) => {
+                const el = document.getElementById('fin-op-destino-' + i);
+                if (!el) return;
+                const sel = finDestino === i;
+                el.classList.toggle('border-[#006DC4]', sel);
+                el.classList.toggle('bg-blue-50/30', sel);
+                el.classList.toggle('text-[#006DC4]', sel);
+                el.classList.toggle('border-gray-200', !sel);
+                el.classList.toggle('text-gray-600', !sel);
+            });
+
+            actualizarAvanceGeneral();
+
+            const listo = finBloquesRequeridos.every(finRespondido);
+            const btn = document.getElementById('btn-fin-continuar');
+            btn.classList.toggle('bg-[#006DC4]', listo);
+            btn.classList.toggle('text-white', listo);
+            btn.classList.toggle('shadow-lg', listo);
+            btn.classList.toggle('bg-gray-200', !listo);
+            btn.classList.toggle('text-gray-400', !listo);
+        }
+
+        /* ==================================================================
+           AVANCE DE TODA LA EVALUACION (barra de dos tramos: Tu dinero y
+           Tu casa). Cada tramo vale la mitad del porcentaje total.
+           ================================================================== */
+        // Un bloque de "Tu dinero" cuenta cuando tiene un monto, una opcion
+        // elegida, o cuando la persona ya paso por el (aunque lo deje en 0).
+        function finBloqueHecho(b) {
+            if (b.tipo === 'plan') {
+                return !!finTocados[b.id] || finPlan.some(it => costoItemPlan(it) > 0 || it.descripcion.trim());
+            }
+            return finRespondido(b) || !!finTocados[b.id];
+        }
+
+        function porcentajeFinanzas() {
+            if (finPasoCompleto) return 100;
+            const bloques = Object.values(finBloquesPorId);
+            return Math.round((bloques.filter(finBloqueHecho).length / bloques.length) * 100);
+        }
+
+        function actualizarAvanceGeneral() {
+            const dinero = porcentajeFinanzas();
+            const casa = porcentajeSocial();
+            const total = Math.round((dinero + casa) / 2);
+            document.querySelectorAll('.avance-dinero').forEach(el => { el.style.width = dinero + '%'; });
+            document.querySelectorAll('.avance-casa').forEach(el => { el.style.width = casa + '%'; });
+            document.querySelectorAll('.avance-texto').forEach(el => { el.innerText = total + '% completado'; });
+        }
+
+        /* ==================================================================
+           PASO AUTOMATICO AL SIGUIENTE DATO
+           - Tecla "Siguiente" (o Enter) del teclado: pasa al siguiente campo
+             y lo centra en la pantalla.
+           - Al cerrar el teclado despues de escribir (el teclado numerico del
+             iPhone no tiene tecla "Siguiente"): baja solo al siguiente dato.
+           - Las preguntas sin campo de texto (destino del crédito) tambien son
+             una parada (data-parada).
+           ================================================================== */
+        function paradasFin() {
+            return [...document.querySelectorAll('#fin-container input, #fin-container [data-parada]')]
+                .filter(el => el.offsetParent !== null);
+        }
+
+        function centrarEnPantalla(el) {
+            if (!el) return;
+            const alto = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+            const y = el.getBoundingClientRect().top + window.scrollY - alto * 0.35;
+            window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+        }
+
+        function irAlSiguienteDato(el, enfocar) {
+            const paradas = paradasFin();
+            const siguiente = paradas[paradas.indexOf(el) + 1];
+            if (!siguiente || paradas.indexOf(el) === -1) {
+                // Era el ultimo dato: se muestra el resumen.
+                if (enfocar) el.blur();
+                centrarEnPantalla(document.getElementById('fin-resumen'));
+                return;
+            }
+            if (siguiente.tagName === 'INPUT') {
+                if (enfocar) siguiente.focus({ preventScroll: true });
+            } else if (enfocar) {
+                el.blur();
+            }
+            centrarEnPantalla(siguiente);
+        }
+
+        function marcarTocado(el) {
+            const bloque = el.closest('[id^="fin-bloque-"]');
+            if (bloque) finTocados[bloque.id.replace('fin-bloque-', '')] = true;
+        }
+
+        const contenedorFin = document.getElementById('fin-container');
+        contenedorFin.addEventListener('keydown', e => {
+            if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+            e.preventDefault();
+            irAlSiguienteDato(e.target, true);
+        });
+        contenedorFin.addEventListener('focusin', e => {
+            if (e.target.tagName === 'INPUT') delete e.target.dataset.cambio;
+        });
+        contenedorFin.addEventListener('input', e => {
+            if (e.target.tagName === 'INPUT') e.target.dataset.cambio = '1';
+        });
+        contenedorFin.addEventListener('focusout', e => {
+            const el = e.target;
+            if (el.tagName !== 'INPUT') return;
+            marcarTocado(el);
+            actualizarAvanceGeneral();
+            if (!el.dataset.cambio || el.dataset.sinAvance) return;
+            // Si la persona toco otro campo, se respeta; si solo cerro el
+            // teclado, se baja al siguiente dato.
+            setTimeout(() => {
+                const activo = document.activeElement;
+                if (activo && activo !== document.body && contenedorFin.contains(activo)) return;
+                if (document.getElementById('pantalla-financiera').classList.contains('hidden')) return;
+                irAlSiguienteDato(el, false);
+            }, 250);
+        });
+
+        function marcarPendiente(id) {
+            const bloque = document.getElementById('fin-bloque-' + id);
+            bloque.classList.remove('border-gray-200');
+            bloque.classList.add('border-orange-400', 'bg-orange-50/40');
+            document.getElementById('fin-pend-' + id).classList.remove('hidden');
+        }
+
+        function quitarPendiente(id) {
+            const bloque = document.getElementById('fin-bloque-' + id);
+            if (!bloque || !bloque.classList.contains('border-orange-400')) return;
+            bloque.classList.remove('border-orange-400', 'bg-orange-50/40');
+            bloque.classList.add('border-gray-200');
+            document.getElementById('fin-pend-' + id).classList.add('hidden');
+        }
+
+        // Boton "Continuar": si falta algo, marca en naranja lo pendiente y
+        // lleva a la primera pregunta sin responder.
+        function continuarFinanzas() {
+            const pendientes = finBloquesRequeridos.filter(b => !finRespondido(b));
+            if (pendientes.length) {
+                pendientes.forEach(b => marcarPendiente(b.id));
+                const primero = document.getElementById('fin-bloque-' + pendientes[0].id);
+                const y = primero.getBoundingClientRect().top + window.scrollY - 150;
+                window.scrollTo({ top: y, behavior: 'smooth' });
+                return;
+            }
+
+            // "Tu dinero" queda completo en la barra de avance.
+            finPasoCompleto = true;
+            actualizarAvanceGeneral();
+
+            // Paso 2: instrucciones con audio y luego la parte social.
+            // El play() va dentro del mismo toque del usuario, como exigen los navegadores.
+            document.getElementById('modal-instrucciones').classList.remove('hidden');
+            reproducirInstrucciones();
+        }
+
+        function datosFinancierosParaEnvio() {
+            const r = calcularFinanzas();
+            const datos = {};
+            Object.values(finBloquesPorId).forEach(b => {
+                (b.campos || []).forEach(c => {
+                    if (!c.id) return;
+                    datos[c.id] = finNum(c.id);
+                    if (c.descripcion) datos[c.id + '_desc'] = finNum(c.id) > 0 ? (finValores[c.id + '_desc'] || '').trim() : '';
+                });
+            });
+            datos.dependientes = finNum('dependientes');
+
+            const plan = finPlan
+                .filter(it => it.descripcion.trim() || costoItemPlan(it) > 0)
+                .map(it => ({
+                    descripcion: it.descripcion.trim(),
+                    cantidad: parseInt(it.cantidad, 10) || 0,
+                    costo_unitario: parseInt(it.costo_unitario, 10) || 0,
+                    costo_total: costoItemPlan(it),
+                    observaciones: it.observaciones.trim()
+                }));
+
+            Object.assign(datos, {
+                utilidad_bruta_A: r.A,
+                gastos_operativos_B: r.B,
+                utilidad_neta_C: r.C,
+                otros_ingresos_D: r.D,
+                gastos_familiares_E: r.E,
+                excedente_familiar_F: r.F,
+                activo_corriente_G: r.G,
+                activos_fijos_H: r.H,
+                total_activo_I: r.I,
+                pasivo_corriente_J: r.J,
+                pasivo_no_corriente_K: r.K,
+                total_pasivo_L: r.L,
+                patrimonio: r.patrimonio,
+                capital_trabajo: r.capitalTrabajo,
+                indicador_cuota_excedente: r.indicador === null ? '' : Math.round(r.indicador * 10000) / 10000,
+                destino_credito: finDestino === null ? '' : finBloquesPorId.destino.opciones[finDestino].valor,
+                plan_inversion: plan,
+                plan_inversion_detalle: plan.map(it => `${it.descripcion || 'Sin descripción'} (${it.cantidad} x Q${it.costo_unitario} = Q${it.costo_total})`).join('; '),
+                total_plan_inversion: r.planTotal
+            });
+            return datos;
+        }
+
+        /* Audio del popup financiero (opcional). Solo existe si al generar el
+           HTML estaba el mp3 "Instrucciones financieras.mp3" en la carpeta de
+           audios; si no, estas funciones no hacen nada. */
+        function audioFin() { return document.getElementById('audio-instrucciones-fin'); }
+        const iconoAudioFin = document.getElementById('audio-fin-icono') ? document.getElementById('audio-fin-icono').innerHTML : '';
+
+        function pintarBotonAudioFin(reproduciendo) {
+            const texto = document.getElementById('audio-fin-texto');
+            const icono = document.getElementById('audio-fin-icono');
+            if (!texto || !icono) return;
+            texto.innerText = reproduciendo ? 'Reproduciendo... (toca para detener)' : 'Escuchar instrucciones';
+            icono.innerHTML = reproduciendo
+                ? '<span class="audio-wave flex items-end h-5"><span></span><span></span><span></span></span>'
+                : iconoAudioFin;
+        }
+
+        function reproducirInstruccionesFin() {
+            const audio = audioFin();
+            if (!audio) return;
+            detenerInstrucciones();
+            audioOpcion.pause();
+            try { audio.currentTime = 0; } catch (e) {}
+            const intento = audio.play();
+            if (intento !== undefined) {
+                intento.then(() => pintarBotonAudioFin(true))
+                       .catch(err => { console.log('El navegador bloqueó el audio financiero:', err); pintarBotonAudioFin(false); });
+            }
+        }
+
+        function detenerInstruccionesFin() {
+            const audio = audioFin();
+            if (!audio) return;
+            audio.pause();
+            try { audio.currentTime = 0; } catch (e) {}
+            pintarBotonAudioFin(false);
+        }
+
+        function toggleAudioInstruccionesFin() {
+            const audio = audioFin();
+            if (!audio) return;
+            if (audio.paused) reproducirInstruccionesFin();
+            else detenerInstruccionesFin();
+        }
+
+        if (audioFin()) audioFin().addEventListener('ended', () => pintarBotonAudioFin(false));
+
+        function aceptarInstruccionesFin() {
+            detenerInstruccionesFin();
+            document.getElementById('modal-instrucciones-fin').classList.add('hidden');
+            document.getElementById('pantalla-inicio').classList.add('hidden');
+            document.getElementById('pantalla-financiera').classList.remove('hidden');
+            document.getElementById('btn-back').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function reiniciarFinanzas() {
+            finValores = {};
+            finTocados = {};
+            finPasoCompleto = false;
+            finDestino = null;
+            finPlan = [nuevoItemPlan()];
+            renderizarFinanzas();
+        }
+
+        renderizarFormulario();
+        reiniciarFinanzas();
+    </script>
+</body>
+</html>
