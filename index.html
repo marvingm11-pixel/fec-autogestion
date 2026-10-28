@@ -1221,17 +1221,263 @@
             return (entero || '0') + '.' + decimales;
         }
 
+        /* ==================================================================
+           DICTADO DE MONTOS
+           Dentro de cada monto hay un microfono: la persona lo toca, dice la
+           cantidad ("mil quinientos con cincuenta") y el numero se escribe
+           solo. Usa el reconocimiento de voz del navegador (Chrome en Android,
+           Safari en iPhone). Si el navegador no lo tiene, el microfono no
+           aparece y se escribe con el teclado como siempre.
+           ================================================================== */
+        const ReconocedorVoz = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const hayDictado = !!ReconocedorVoz;
+        let idiomaDictado = 'es-GT';
+        let dictadoEnCurso = null;     // { reconocedor, boton, input } mientras escucha
+
+        const iconoMicrofono = '<svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>';
+
+        function htmlMicrofono() {
+            if (!hayDictado) return '';
+            return `<button type="button" onclick="dictarMonto(this)" aria-label="Decir la cantidad con la voz"
+                        class="absolute right-0 top-0 h-full w-11 flex items-center justify-center">
+                        <span class="w-8 h-8 rounded-full bg-[#E6F4FF] text-[#006DC4] flex items-center justify-center transition-colors">${iconoMicrofono}</span>
+                    </button>`;
+        }
+
+        // Palabras de numeros que entiende el dictado (sin tildes). "un" y "una"
+        // van aparte, porque tambien se usan como articulo ("un promedio").
+        const NUMEROS_DICTADO = {
+            cero: 0, nada: 0, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9,
+            diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15,
+            dieciseis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19,
+            veinte: 20, veintiun: 21, veintiuno: 21, veintiuna: 21, veintidos: 22, veintitres: 23, veinticuatro: 24,
+            veinticinco: 25, veintiseis: 26, veintisiete: 27, veintiocho: 28, veintinueve: 29,
+            treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60, setenta: 70, ochenta: 80, noventa: 90,
+            cien: 100, ciento: 100, doscientos: 200, doscientas: 200, trescientos: 300, trescientas: 300,
+            cuatrocientos: 400, cuatrocientas: 400, quinientos: 500, quinientas: 500, seiscientos: 600, seiscientas: 600,
+            setecientos: 700, setecientas: 700, ochocientos: 800, ochocientas: 800, novecientos: 900, novecientas: 900,
+            medio: 0.5, media: 0.5
+        };
+
+        // Convierte palabras como "15 mil 500", "mil quinientos" o "1,500" en
+        // un numero. Las demas palabras ("quetzales", "como", "al mes") no
+        // cuentan. Devuelve null si no hay ningun numero.
+        function numeroDeFrase(palabras) {
+            let total = 0, actual = 0, encontrado = false, anteriorEraCifra = false;
+            palabras.forEach((palabra, i) => {
+                const siguiente = palabras[i + 1];
+                let esCifra = false;
+                if (/[0-9]/.test(palabra)) {
+                    const n = parseFloat(soloMonto(palabra));
+                    if (!isNaN(n)) {
+                        // "1 500" (con espacio para los miles) es mil quinientos.
+                        actual = (anteriorEraCifra && /^[0-9]{3}$/.test(palabra)) ? actual * 1000 + n : actual + n;
+                        encontrado = esCifra = true;
+                    }
+                } else if (typeof NUMEROS_DICTADO[palabra] === 'number') {
+                    actual += NUMEROS_DICTADO[palabra];
+                    encontrado = true;
+                } else if ((palabra === 'un' || palabra === 'una') &&
+                           (!siguiente || ['mil', 'millon', 'millones', 'quetzal', 'quetzales'].includes(siguiente))) {
+                    actual += 1;
+                    encontrado = true;
+                } else if (palabra === 'mil') {
+                    total += (actual || 1) * 1000;
+                    actual = 0;
+                    encontrado = true;
+                } else if (palabra === 'millon' || palabra === 'millones') {
+                    total = (total + (actual || 1)) * 1000000;
+                    actual = 0;
+                    encontrado = true;
+                }
+                anteriorEraCifra = esCifra;
+            });
+            return encontrado ? total + actual : null;
+        }
+
+        // Lo que dijo la persona -> monto como texto ("1500.5"), o null si no se
+        // entendio. Los centavos pueden ir con "con" ("mil con cincuenta
+        // centavos"), con "punto" ("25 punto 50") o "y medio" (cincuenta centavos).
+        function montoDictado(texto) {
+            const limpio = String(texto || '').normalize('NFC').toLowerCase()
+                .replace(/[áéíóúü]/g, c => 'aeiouu'['áéíóúü'.indexOf(c)])
+                .replace(/ +/g, ' ').trim();
+            if (!limpio) return null;
+            const palabras = limpio.split(' ');
+
+            let enteros = palabras, centavos = null, esPunto = false;
+            const corte = palabras.findIndex(p => p === 'con' || p === 'punto' || p === 'coma');
+            if (corte > 0) {
+                enteros = palabras.slice(0, corte);
+                centavos = palabras.slice(corte + 1);
+                esPunto = palabras[corte] !== 'con';
+            } else if (palabras.some(p => p.startsWith('centavo'))) {
+                // Solo centavos: "cincuenta centavos".
+                enteros = [];
+                centavos = palabras;
+            }
+
+            let medio = false;
+            const iMedio = enteros.findIndex((p, i) => (p === 'medio' || p === 'media') && enteros[i - 1] === 'y');
+            if (iMedio > 0) {
+                medio = true;
+                enteros = enteros.slice(0, iMedio - 1);
+            }
+
+            let n = enteros.length ? numeroDeFrase(enteros) : 0;
+            if (n === null) return null;
+            if (medio) n += 0.5;
+
+            if (centavos) {
+                const enCifras = centavos.join('').replace(/[^0-9]/g, '');
+                const dichos = numeroDeFrase(centavos);
+                if (esPunto && /^[0-9]{1,2}$/.test(centavos.join(''))) {
+                    n += parseFloat('0.' + enCifras);           // "25 punto 5" = 25.50
+                } else if (dichos !== null && dichos < 100) {
+                    n += (esPunto && dichos < 10 ? dichos * 10 : dichos) / 100;
+                } else {
+                    return null;
+                }
+            }
+            if (!(n >= 0) || n >= 1000000000) return null;
+            return String(aCentavos(n));
+        }
+
+        function ponerMontoDictado(input, monto) {
+            input.value = monto;
+            // Igual que si lo hubiera escrito: guarda el dato y suma los totales.
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            finOnBlur(input);
+            marcarTocado(input);
+            actualizarAvanceGeneral();
+            // La casilla se pone verde un momento para que se note el cambio.
+            input.classList.add('ring-2', 'ring-green-500');
+            setTimeout(() => input.classList.remove('ring-2', 'ring-green-500'), 1500);
+        }
+
+        // Aviso abajo de la pantalla: "Te escucho", lo que se escucho, o un error.
+        function mostrarAvisoDictado(tipo, texto) {
+            let aviso = document.getElementById('aviso-dictado');
+            if (!aviso) {
+                document.body.insertAdjacentHTML('beforeend', '<div id="aviso-dictado" role="status" aria-live="polite"></div>');
+                aviso = document.getElementById('aviso-dictado');
+            }
+            clearTimeout(mostrarAvisoDictado.temporizador);
+            const colores = { escuchando: 'bg-[#006DC4]', bien: 'bg-green-600', error: 'bg-orange-500' };
+            aviso.className = 'fixed left-1/2 -translate-x-1/2 bottom-28 z-50 w-[calc(100%-32px)] max-w-sm rounded-2xl px-4 py-3 text-[14px] font-medium text-white shadow-lg flex items-center gap-3 ' + colores[tipo];
+            aviso.innerHTML = (tipo === 'escuchando'
+                ? '<span class="audio-wave shrink-0"><span></span><span></span><span></span></span>'
+                : '<span class="shrink-0 w-6 h-6 rounded-full bg-white/25 flex items-center justify-center">' + iconoMicrofono + '</span>') + '<span></span>';
+            aviso.lastChild.textContent = texto;
+            if (tipo !== 'escuchando') {
+                mostrarAvisoDictado.temporizador = setTimeout(() => aviso.classList.add('hidden'), tipo === 'bien' ? 2500 : 5000);
+            }
+        }
+
+        function terminarDictado() {
+            if (!dictadoEnCurso) return;
+            const circulo = dictadoEnCurso.boton.querySelector('span');
+            circulo.classList.remove('bg-red-500', 'text-white', 'animate-pulse');
+            circulo.classList.add('bg-[#E6F4FF]', 'text-[#006DC4]');
+            dictadoEnCurso = null;
+        }
+
+        const ERRORES_DICTADO = {
+            'no-speech': 'No te escuché. Toca el micrófono y habla otra vez.',
+            'not-allowed': 'El celular no dio permiso para usar el micrófono. Puedes escribir el número.',
+            'service-not-allowed': 'El celular no dio permiso para usar el micrófono. Puedes escribir el número.',
+            'network': 'Para usar el micrófono se necesita internet. Puedes escribir el número.',
+            'audio-capture': 'No se encontró el micrófono. Puedes escribir el número.'
+        };
+
+        function dictarMonto(boton) {
+            if (dictadoEnCurso) {
+                // Tocar otra vez el mismo microfono deja de escuchar.
+                if (dictadoEnCurso.boton === boton) {
+                    dictadoEnCurso.reconocedor.stop();
+                    return;
+                }
+                dictadoEnCurso.resuelto = true;
+                dictadoEnCurso.reconocedor.abort();
+                terminarDictado();
+            }
+            const input = boton.parentElement.querySelector('input');
+            if (document.activeElement === input) input.blur();
+            // Ningun audio debe sonar mientras el celular escucha.
+            audioOpcion.pause();
+            detenerInstrucciones();
+            detenerInstruccionesFin();
+
+            const reconocedor = new ReconocedorVoz();
+            reconocedor.lang = idiomaDictado;
+            reconocedor.interimResults = true;
+            reconocedor.maxAlternatives = 5;
+            const sesion = { reconocedor, boton, input, resuelto: false };
+            dictadoEnCurso = sesion;
+
+            const circulo = boton.querySelector('span');
+            circulo.classList.remove('bg-[#E6F4FF]', 'text-[#006DC4]');
+            circulo.classList.add('bg-red-500', 'text-white', 'animate-pulse');
+            mostrarAvisoDictado('escuchando', 'Te escucho... di la cantidad');
+
+            reconocedor.onresult = e => {
+                const resultado = e.results[e.results.length - 1];
+                if (!resultado.isFinal) {
+                    mostrarAvisoDictado('escuchando', resultado[0].transcript);
+                    return;
+                }
+                sesion.resuelto = true;
+                // Se prueba cada cosa que el celular creyo escuchar, hasta encontrar un numero.
+                for (let i = 0; i < resultado.length; i++) {
+                    const monto = montoDictado(resultado[i].transcript);
+                    if (monto !== null) {
+                        ponerMontoDictado(input, monto);
+                        mostrarAvisoDictado('bien', 'Escuché: ' + formatoQ(parseFloat(monto)));
+                        return;
+                    }
+                }
+                mostrarAvisoDictado('error', 'No entendí la cantidad («' + resultado[0].transcript + '»). Toca el micrófono y di solo el número.');
+            };
+            reconocedor.onerror = e => {
+                if (e.error === 'aborted') { sesion.resuelto = true; return; }
+                if (e.error === 'language-not-supported' && idiomaDictado !== 'es-MX') {
+                    // El celular no tiene espanol de Guatemala: se usa el de Mexico.
+                    idiomaDictado = 'es-MX';
+                    sesion.reintentar = true;
+                    sesion.resuelto = true;
+                    return;
+                }
+                sesion.resuelto = true;
+                mostrarAvisoDictado('error', ERRORES_DICTADO[e.error] || 'No funcionó el micrófono. Puedes escribir el número.');
+            };
+            reconocedor.onend = () => {
+                if (dictadoEnCurso === sesion) terminarDictado();
+                if (sesion.reintentar) { dictarMonto(boton); return; }
+                if (!sesion.resuelto) mostrarAvisoDictado('error', ERRORES_DICTADO['no-speech']);
+            };
+            try {
+                reconocedor.start();
+            } catch (err) {
+                terminarDictado();
+                mostrarAvisoDictado('error', 'No funcionó el micrófono. Puedes escribir el número.');
+            }
+        }
+
         const claseInputFin = 'border border-gray-300 rounded-lg focus:outline-none focus:border-[#006DC4] focus:ring-1 focus:ring-[#006DC4] transition-colors bg-white text-gray-800 placeholder-gray-300';
 
         // Los montos empiezan en 0 (data-cero): al tocarlos el 0 se borra para
         // escribir, y si se dejan vacios vuelven a 0. enBlanco: empieza vacio.
+        // Si el celular puede dictar, el microfono va dentro de la casilla a la
+        // derecha (por eso la casilla es un poco mas ancha).
         function htmlInputMonto(campo, grande, enBlanco) {
+            const ancho = grande ? 'w-full' : (hayDictado ? 'w-[50%]' : 'w-[46%]') + ' shrink-0';
             return `
-                <div class="relative ${grande ? 'w-full' : 'w-[46%] shrink-0'}">
+                <div class="relative ${ancho}">
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[14px] pointer-events-none">Q</span>
                     <input id="fin-${campo}" data-campo="${campo}" ${enBlanco ? '' : 'data-cero="1" value="0"'} type="text" inputmode="decimal" maxlength="12" autocomplete="off" placeholder="0"
                         oninput="finOnInput(this)" onfocus="finOnFocus(this)" onblur="finOnBlur(this)"
-                        class="${claseInputFin} w-full pl-8 pr-3 ${grande ? 'py-3' : 'py-2.5'} text-[15px] text-right">
+                        class="${claseInputFin} w-full pl-8 ${hayDictado ? 'pr-12' : 'pr-3'} ${grande ? 'py-3' : 'py-2.5'} text-[15px] text-right">
+                    ${htmlMicrofono()}
                 </div>`;
         }
 
@@ -1349,6 +1595,9 @@
                     <span class="text-[11px] font-medium text-[#006DC4] bg-[#E6F4FF] px-3 py-1 rounded-full">Paso 1 de 2</span>
                     <h2 class="text-[16px] font-semibold text-gray-800 mt-3">Tu dinero</h2>
                     <p class="text-[12px] text-gray-500 mt-1 leading-relaxed">Escribe solo números, en quetzales. Si hay centavos, ponlos así: <b>25.50</b><br>Si no tienes algo, déjalo en <b>0</b>.</p>
+                    ${hayDictado ? `<p class="text-[12px] text-gray-500 mt-2 flex items-center justify-center gap-1.5">También puedes tocar
+                        <span class="inline-flex w-6 h-6 rounded-full bg-[#E6F4FF] text-[#006DC4] items-center justify-center">${iconoMicrofono}</span>
+                        y decir la cantidad.</p>` : ''}
                 </div>`;
             finSecciones.forEach(sec => {
                 html += `
@@ -1389,7 +1638,8 @@
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[14px] pointer-events-none">Q</span>
                                 <input type="text" inputmode="decimal" maxlength="12" value="${conMiles(it.costo_unitario)}" oninput="finPlanCampo(${i}, 'costo_unitario', this)" onfocus="finOnFocus(this)" onblur="finOnBlur(this)" autocomplete="off" placeholder="0"
-                                    class="${claseInputFin} w-full pl-8 pr-3 py-2.5 text-[15px] text-right">
+                                    class="${claseInputFin} w-full pl-8 ${hayDictado ? 'pr-12' : 'pr-3'} py-2.5 text-[15px] text-right">
+                                ${htmlMicrofono()}
                             </div>
                         </div>
                     </div>
@@ -1671,6 +1921,8 @@
             // Si la persona toco otro campo, se respeta; si solo cerro el
             // teclado, se baja al siguiente dato.
             setTimeout(() => {
+                // Si toco el microfono, se queda en ese dato mientras habla.
+                if (dictadoEnCurso) return;
                 const activo = document.activeElement;
                 if (activo && activo !== document.body && contenedorFin.contains(activo)) return;
                 if (document.getElementById('pantalla-financiera').classList.contains('hidden')) return;
