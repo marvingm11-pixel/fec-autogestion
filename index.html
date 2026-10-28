@@ -1169,30 +1169,56 @@
         /* ==================================================================
            SECCION FINANCIERA: dibujo, calculos, validacion y envio
            ================================================================== */
+        // Los montos se ven sin centavos (Q1,500) y solo los muestran cuando
+        // hay (Q1,500.50).
         const formatoQuetzales = (() => {
             try {
-                return new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+                return {
+                    enteros: new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ', minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+                    centavos: new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                };
             } catch (e) { return null; }
         })();
 
+        // Redondea a centavos, para que las sumas no dejen restos como 0.30000000000000004.
+        function aCentavos(n) {
+            return Math.round(n * 100) / 100;
+        }
+
         function conMiles(texto) {
             if (texto === '' || texto === null || texto === undefined) return '';
-            const n = Number(texto);
-            return isNaN(n) ? '' : n.toLocaleString('en-US');
+            const n = aCentavos(Number(texto));
+            if (isNaN(n)) return '';
+            const decimales = Number.isInteger(n) ? 0 : 2;
+            return n.toLocaleString('en-US', { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
         }
 
         function formatoQ(n) {
-            if (formatoQuetzales) return formatoQuetzales.format(n);
-            return (n < 0 ? '-Q' : 'Q') + conMiles(Math.abs(Math.round(n)));
+            n = aCentavos(n);
+            if (formatoQuetzales) return formatoQuetzales[Number.isInteger(n) ? 'enteros' : 'centavos'].format(n);
+            return (n < 0 ? '-Q' : 'Q') + conMiles(Math.abs(n));
         }
 
         function escaparHtml(texto) {
             return String(texto || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
 
-        // Montos enteros en quetzales: solo digitos y sin ceros a la izquierda.
+        // Numeros enteros (personas que dependen): solo digitos y sin ceros a la izquierda.
         function soloDigitos(texto) {
             return String(texto || '').replace(/[^0-9]/g, '').replace(/^0+(?=[0-9])/, '');
+        }
+
+        // Montos en quetzales, con centavos si hacen falta: digitos y un punto
+        // con hasta 2 decimales. La coma cuenta como punto, porque algunos
+        // celulares muestran coma en lugar de punto. Si despues del punto vienen
+        // 3 numeros, era para separar miles (1.500 = mil quinientos) y se quita.
+        function soloMonto(texto) {
+            const grupos = String(texto || '').replace(/,/g, '.').replace(/[^0-9.]/g, '').split('.');
+            let decimales = null;
+            if (grupos.length > 1 && grupos[grupos.length - 1].length <= 2) decimales = grupos.pop();
+            const entero = grupos.join('').replace(/^0+(?=[0-9])/, '');
+            if (decimales === null) return entero;
+            return (entero || '0') + '.' + decimales;
         }
 
         const claseInputFin = 'border border-gray-300 rounded-lg focus:outline-none focus:border-[#006DC4] focus:ring-1 focus:ring-[#006DC4] transition-colors bg-white text-gray-800 placeholder-gray-300';
@@ -1203,7 +1229,7 @@
             return `
                 <div class="relative ${grande ? 'w-full' : 'w-[46%] shrink-0'}">
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[14px] pointer-events-none">Q</span>
-                    <input id="fin-${campo}" data-campo="${campo}" ${enBlanco ? '' : 'data-cero="1" value="0"'} type="text" inputmode="numeric" pattern="[0-9]*" maxlength="9" autocomplete="off" placeholder="0"
+                    <input id="fin-${campo}" data-campo="${campo}" ${enBlanco ? '' : 'data-cero="1" value="0"'} type="text" inputmode="decimal" maxlength="12" autocomplete="off" placeholder="0"
                         oninput="finOnInput(this)" onfocus="finOnFocus(this)" onblur="finOnBlur(this)"
                         class="${claseInputFin} w-full pl-8 pr-3 ${grande ? 'py-3' : 'py-2.5'} text-[15px] text-right">
                 </div>`;
@@ -1238,7 +1264,7 @@
                     <div class="flex items-center justify-center gap-4">
                         <button type="button" onclick="finPaso('${b.id}', -1)" class="w-11 h-11 rounded-full border border-gray-300 text-[22px] text-gray-500 leading-none active:bg-gray-100">−</button>
                         <input id="fin-${b.id}" data-campo="${b.id}" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" placeholder="0"
-                            oninput="finOnInput(this)" data-sin-avance="1" class="${claseInputFin} w-20 py-2.5 text-[18px] text-center">
+                            oninput="finOnInput(this)" data-sin-avance="1" data-entero="1" class="${claseInputFin} w-20 py-2.5 text-[18px] text-center">
                         <button type="button" onclick="finPaso('${b.id}', 1)" class="w-11 h-11 rounded-full border border-gray-300 text-[22px] text-gray-500 leading-none active:bg-gray-100">+</button>
                     </div>`;
             } else if (b.tipo === 'opciones') {
@@ -1322,7 +1348,7 @@
                 <div class="text-center">
                     <span class="text-[11px] font-medium text-[#006DC4] bg-[#E6F4FF] px-3 py-1 rounded-full">Paso 1 de 2</span>
                     <h2 class="text-[16px] font-semibold text-gray-800 mt-3">Tu dinero</h2>
-                    <p class="text-[12px] text-gray-500 mt-1 leading-relaxed">Escribe solo números, en quetzales.<br>Si no tienes algo, déjalo en <b>0</b>.</p>
+                    <p class="text-[12px] text-gray-500 mt-1 leading-relaxed">Escribe solo números, en quetzales. Si hay centavos, ponlos así: <b>25.50</b><br>Si no tienes algo, déjalo en <b>0</b>.</p>
                 </div>`;
             finSecciones.forEach(sec => {
                 html += `
@@ -1355,14 +1381,14 @@
                     <div class="flex gap-2 mb-2">
                         <div class="w-[34%]">
                             <label class="block text-[10px] text-gray-400 mb-0.5">¿Cuántas?</label>
-                            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" value="${escaparHtml(it.cantidad)}" oninput="finPlanCampo(${i}, 'cantidad', this)" autocomplete="off" placeholder="0"
+                            <input type="text" inputmode="decimal" maxlength="9" value="${escaparHtml(it.cantidad)}" oninput="finPlanCampo(${i}, 'cantidad', this)" autocomplete="off" placeholder="0"
                                 class="${claseInputFin} w-full px-3 py-2.5 text-[15px] text-right">
                         </div>
                         <div class="flex-1">
                             <label class="block text-[10px] text-gray-400 mb-0.5">Precio de cada una</label>
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[14px] pointer-events-none">Q</span>
-                                <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="9" value="${conMiles(it.costo_unitario)}" oninput="finPlanCampo(${i}, 'costo_unitario', this)" onfocus="finOnFocus(this)" onblur="finOnBlur(this)" autocomplete="off" placeholder="0"
+                                <input type="text" inputmode="decimal" maxlength="12" value="${conMiles(it.costo_unitario)}" oninput="finPlanCampo(${i}, 'costo_unitario', this)" onfocus="finOnFocus(this)" onblur="finOnBlur(this)" autocomplete="off" placeholder="0"
                                     class="${claseInputFin} w-full pl-8 pr-3 py-2.5 text-[15px] text-right">
                             </div>
                         </div>
@@ -1394,7 +1420,7 @@
 
         function finPlanCampo(i, campo, el) {
             if (campo === 'cantidad' || campo === 'costo_unitario') {
-                const limpio = soloDigitos(el.value);
+                const limpio = soloMonto(el.value);
                 if (el.value !== limpio) el.value = limpio;
                 finPlan[i][campo] = limpio;
             } else {
@@ -1404,13 +1430,14 @@
         }
 
         function finOnInput(el) {
-            const limpio = soloDigitos(el.value);
+            const limpio = el.dataset.entero ? soloDigitos(el.value) : soloMonto(el.value);
             if (el.value !== limpio) el.value = limpio;
             finValores[el.dataset.campo] = limpio;
             actualizarFinanzas();
         }
 
-        // Mientras se escribe el monto va sin comas; al salir se ve como 15,000.
+        // Mientras se escribe el monto va sin comas; al salir se ve como 15,000
+        // (o 15,000.50 si tiene centavos).
         // En los montos que empiezan en 0, el 0 se quita al tocar y vuelve si
         // la persona no escribe nada.
         function finOnFocus(el) {
@@ -1442,7 +1469,7 @@
         }
 
         function finNum(id) {
-            const n = parseInt(soloDigitos(finValores[id]), 10);
+            const n = parseFloat(finValores[id]);
             return isNaN(n) ? 0 : n;
         }
 
@@ -1452,7 +1479,7 @@
         }
 
         function costoItemPlan(it) {
-            return (parseInt(it.cantidad, 10) || 0) * (parseInt(it.costo_unitario, 10) || 0);
+            return aCentavos((parseFloat(it.cantidad) || 0) * (parseFloat(it.costo_unitario) || 0));
         }
 
         // Mismas formulas de la hoja impresa (letras A a L).
@@ -1473,6 +1500,7 @@
             r.patrimonio = r.I - r.L;
             r.capitalTrabajo = r.G - r.J;
             r.planTotal = finPlan.reduce((s, it) => s + costoItemPlan(it), 0);
+            Object.keys(r).forEach(clave => { r[clave] = aCentavos(r[clave]); });
             // (Cuota prestamo / Excedente familiar): solo tiene sentido con excedente positivo.
             const cuota = finNum('cuota_credito');
             r.indicador = (cuota > 0 && r.F > 0) ? cuota / r.F : null;
@@ -1703,8 +1731,8 @@
                 .filter(it => it.descripcion.trim() || costoItemPlan(it) > 0)
                 .map(it => ({
                     descripcion: it.descripcion.trim(),
-                    cantidad: parseInt(it.cantidad, 10) || 0,
-                    costo_unitario: parseInt(it.costo_unitario, 10) || 0,
+                    cantidad: parseFloat(it.cantidad) || 0,
+                    costo_unitario: parseFloat(it.costo_unitario) || 0,
                     costo_total: costoItemPlan(it),
                     observaciones: it.observaciones.trim()
                 }));
@@ -1727,7 +1755,7 @@
                 indicador_cuota_excedente: r.indicador === null ? '' : Math.round(r.indicador * 10000) / 10000,
                 destino_credito: finDestino === null ? '' : finBloquesPorId.destino.opciones[finDestino].valor,
                 plan_inversion: plan,
-                plan_inversion_detalle: plan.map(it => `${it.descripcion || 'Sin descripción'} (${it.cantidad} x Q${it.costo_unitario} = Q${it.costo_total})`).join('; '),
+                plan_inversion_detalle: plan.map(it => `${it.descripcion || 'Sin descripción'} (${it.cantidad} x Q${conMiles(it.costo_unitario)} = Q${conMiles(it.costo_total)})`).join('; '),
                 total_plan_inversion: r.planTotal
             });
             return datos;
