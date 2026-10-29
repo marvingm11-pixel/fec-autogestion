@@ -166,10 +166,10 @@
                 </video>
             </div>
             <div class="h-[132px] shrink-0 pt-4 flex flex-col justify-end">
-                <p id="video-aviso" class="text-white/70 text-[13px] text-center pb-2">Cuando termine el video, vas a poder empezar.</p>
+                <p id="video-aviso" class="text-white/70 text-[13px] text-center pb-2">Cuando termine el video, vas a poder iniciar.</p>
                 <div id="video-botones" class="hidden space-y-2.5">
                     <button onclick="aceptarInstruccionesFin()" class="w-full bg-[#006DC4] text-white font-semibold py-3.5 rounded-xl text-[16px] active:bg-[#005294]">
-                        Empezar
+                        Iniciar
                     </button>
                     <button onclick="reproducirVideoInstrucciones()" class="w-full flex items-center justify-center gap-2 border border-white/60 text-white font-medium py-3 rounded-xl text-[15px] active:bg-white/10">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5"></path></svg>
@@ -719,31 +719,15 @@
            - Se usa UN solo elemento <audio> precargado (no se crea uno nuevo
              en cada llamada): así el navegador ya tiene el mp3 en caché
              cuando se abre el modal y suena de inmediato.
-           - Se "desbloquea" en el primer toque del usuario, porque iOS y
-             Chrome bloquean cualquier play() que no venga de un gesto.
+           - Suena solo dentro del toque en "Continuar", porque iOS y Chrome
+             bloquean cualquier play() que no venga de un gesto. (Ya no se
+             "desbloquea" en el primer toque: en algunos celulares se oía
+             encima del video de instrucciones.)
            - Si aún así el navegador lo bloquea, el boton del modal queda
              listo para que la persona lo reproduzca manualmente.
            ================================================================== */
         const audioInstrucciones = document.getElementById('audio-instrucciones');
         let audioDisponible = true;
-
-        // Desbloqueo silencioso en el primer gesto del usuario (iOS/Safari).
-        function desbloquearAudio() {
-            if (!audioInstrucciones || !audioInstrucciones.paused) return;
-            audioInstrucciones.muted = true;
-            const intento = audioInstrucciones.play();
-            if (intento !== undefined) {
-                intento.then(() => {
-                    audioInstrucciones.pause();
-                    audioInstrucciones.currentTime = 0;
-                    audioInstrucciones.muted = false;
-                }).catch(() => {
-                    audioInstrucciones.muted = false;
-                });
-            }
-        }
-        document.addEventListener('touchstart', desbloquearAudio, { once: true, passive: true });
-        document.addEventListener('pointerdown', desbloquearAudio, { once: true });
 
         // Refleja el estado real del audio en el botón del modal.
         function pintarBotonAudio(estado) {
@@ -2066,9 +2050,9 @@
         /* Video de instrucciones de "Tu dinero". Empieza solo, porque se abre
            con el toque en "Iniciar Evaluación" (los navegadores lo exigen); si
            aun asi lo bloquean, la persona le da play en el video. Al terminar
-           salen los botones "Empezar" y "Ver el video otra vez". */
+           salen los botones "Iniciar" y "Ver el video otra vez". */
         const videoInstrucciones = document.getElementById('video-instrucciones');
-        const AVISO_VIDEO = 'Cuando termine el video, vas a poder empezar.';
+        const AVISO_VIDEO = 'Cuando termine el video, vas a poder iniciar.';
 
         function mostrarBotonesVideo(mostrar, aviso) {
             document.getElementById('video-botones').classList.toggle('hidden', !mostrar);
@@ -2079,6 +2063,9 @@
 
         function reproducirVideoInstrucciones() {
             mostrarBotonesVideo(false);
+            // El video trae su propia voz: ningun otro audio debe sonar encima.
+            detenerInstrucciones();
+            audioOpcion.pause();
             // Si antes no cargo (sin internet), se intenta descargar otra vez.
             if (videoInstrucciones.networkState === HTMLMediaElement.NETWORK_NO_SOURCE || videoInstrucciones.error) {
                 videoInstrucciones.load();
@@ -2095,6 +2082,14 @@
             mostrarBotonesVideo(true, 'No se pudo cargar el video. Revisa tu internet.');
         }
         videoInstrucciones.addEventListener('ended', () => mostrarBotonesVideo(true));
+        // Si la persona adelanta el video hasta el final, a veces se detiene un
+        // poquito antes y no avisa que termino: se toma como terminado.
+        function revisarFinVideo() {
+            const v = videoInstrucciones;
+            if (v.duration && v.duration - v.currentTime < 0.5) mostrarBotonesVideo(true);
+        }
+        videoInstrucciones.addEventListener('timeupdate', revisarFinVideo);
+        videoInstrucciones.addEventListener('pause', revisarFinVideo);
         videoInstrucciones.addEventListener('error', videoNoCarga);
         const fuentesVideo = videoInstrucciones.querySelectorAll('source');
         if (fuentesVideo.length) fuentesVideo[fuentesVideo.length - 1].addEventListener('error', videoNoCarga);
