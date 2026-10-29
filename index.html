@@ -28,9 +28,6 @@
     <audio id="audio-instrucciones" preload="auto" playsinline>
         <source src="https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/INSTRUCCIONES/Instrucciones%20de%20la%20parte%20social_9759.m4a" type="audio/mp4">
     </audio>
-    <audio id="audio-instrucciones-fin" preload="auto" playsinline>
-        <source src="https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/INSTRUCCIONES/Instrucciones%20de%20%E2%80%9CTu%20dinero%E2%80%9D%20%28la%20parte%20financiera%29_3829.m4a" type="audio/mp4">
-    </audio>
 
     <!-- Header Fijo Superior Móvil -->
     <div class="fixed top-0 w-full bg-[#006DC4] z-50 shadow-md">
@@ -57,8 +54,10 @@
 
         <!-- PANTALLA 1: DATOS DEL CLIENTE (LIMPIA, SOLO NOMBRE Y DPI) -->
         <div id="pantalla-inicio" class="p-4 flex flex-col min-h-[calc(100vh-5rem)]">
+            <!-- La tarjeta queda en el centro del espacio libre, sobre el boton -->
+            <div class="flex-1 flex flex-col justify-center">
             <div class="bg-white rounded-2xl shadow-sm p-5 mb-4">
-                <h2 class="text-black text-[14px] font-normal text-center mb-5">Datos del Integrante</h2>
+                <h2 class="text-black text-[14px] font-normal text-center mb-5">Datos del cliente</h2>
 
                 <div class="space-y-4">
                     <div>
@@ -72,6 +71,7 @@
                         <p class="text-[10px] text-gray-400 mt-1">Debe contener exactamente 13 dígitos</p>
                     </div>
                 </div>
+            </div>
             </div>
 
             <div class="mt-auto pb-4">
@@ -152,37 +152,31 @@
         </div>
     </div>
 
-    <!-- Modal Instrucciones financieras (antes del Paso 1 "Tu dinero") -->
-    <div id="modal-instrucciones-fin" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-[24px] p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto text-center shadow-2xl transform scale-95 transition-transform duration-300">
-            <img src="https://i.postimg.cc/3xHSLNn7/Chat-GPT-Image-11-jun-2026-01-02-12-p-m-1.png" alt="Instrucciones" class="w-14 h-14 mx-auto mb-4 object-contain">
-            <h2 class="text-[18px] font-bold text-[#006DC4] mb-3">Instrucciones</h2>
-            <p class="text-gray-500 mb-4 text-[15px] leading-relaxed">
-                Primero te vamos a preguntar por el dinero de tu negocio y de tu casa:
-            </p>
-            <ul class="text-left bg-[#F5FAFF] rounded-2xl px-4 py-3 mb-4 space-y-2.5">
-                <li class="flex items-center gap-3 text-[14px] text-gray-600"><span class="text-[20px] leading-none">💰</span>Cuánto vendes y cuánto ganas</li>
-                <li class="flex items-center gap-3 text-[14px] text-gray-600"><span class="text-[20px] leading-none">🛒</span>Cuánto gastas en tu negocio y en tu casa</li>
-                <li class="flex items-center gap-3 text-[14px] text-gray-600"><span class="text-[20px] leading-none">🏠</span>Lo que tienes y lo que debes</li>
-                <li class="flex items-center gap-3 text-[14px] text-gray-600"><span class="text-[20px] leading-none">🎯</span>Para qué quieres el crédito</li>
-            </ul>
-            <p class="text-gray-500 mb-5 text-[14px] leading-relaxed">
-                Escribe solo números. Si no tienes algo, déjalo en <b>0</b>. Responde con la verdad.
-            </p>
-
-            <button id="btn-audio-fin" onclick="toggleAudioInstruccionesFin()"
-                class="w-full flex items-center justify-center gap-2 border border-[#006DC4] text-[#006DC4] bg-[#E6F4FF] font-medium py-2.5 rounded-xl mb-5 text-[14px] transition-colors">
-                <span id="audio-fin-icono" class="flex items-center">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M11 5L6 9H2v6h4l5 4V5z"></path>
-                    </svg>
-                </span>
-                <span id="audio-fin-texto">Escuchar instrucciones</span>
-            </button>
-
-            <button onclick="aceptarInstruccionesFin()" class="w-full bg-[#006DC4] text-white font-medium py-3 rounded-xl hover:bg-[#005294] transition-colors text-[15px]">
-                Iniciar
-            </button>
+    <!-- Video de instrucciones (antes del Paso 1 "Tu dinero"). Ocupa toda la
+         pantalla del celular; al terminar salen los botones abajo, a la mano.
+         La zona de botones tiene alto fijo para que el video no se mueva. -->
+    <div id="modal-instrucciones-fin" class="fixed inset-0 bg-black z-[60] hidden">
+        <div class="h-full max-w-md mx-auto flex flex-col px-4 pt-5 pb-6">
+            <h2 class="text-white text-[17px] font-semibold text-center mb-3">Mira este video antes de empezar</h2>
+            <div class="flex-1 min-h-0 flex items-center justify-center">
+                <video id="video-instrucciones" class="max-h-full max-w-full rounded-2xl bg-black" playsinline webkit-playsinline controls preload="auto"
+                    controlslist="nodownload noplaybackrate" disablepictureinpicture>
+                <source src="https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/VIDEOS/MicrosoftTeams-video.mp4" type="video/mp4">
+                <source src="https://raw.githubusercontent.com/marvingm11-pixel/Iconograf-a-para-la-FEC-Social/main/AUDIOS%20ISABEL/VIDEOS/MicrosoftTeams-video.mp4" type="video/mp4">
+                </video>
+            </div>
+            <div class="h-[132px] shrink-0 pt-4 flex flex-col justify-end">
+                <p id="video-aviso" class="text-white/70 text-[13px] text-center pb-2">Cuando termine el video, vas a poder empezar.</p>
+                <div id="video-botones" class="hidden space-y-2.5">
+                    <button onclick="aceptarInstruccionesFin()" class="w-full bg-[#006DC4] text-white font-semibold py-3.5 rounded-xl text-[16px] active:bg-[#005294]">
+                        Empezar
+                    </button>
+                    <button onclick="reproducirVideoInstrucciones()" class="w-full flex items-center justify-center gap-2 border border-white/60 text-white font-medium py-3 rounded-xl text-[15px] active:bg-white/10">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5"></path></svg>
+                        Ver el video otra vez
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -411,18 +405,22 @@
              opciones    -> se elige una sola opcion
              plan        -> lista de articulos del plan de inversion
              resultado   -> totales que se calculan solos (no se llenan)
+           audio: clave en AUDIOS_OPCIONES; pone una bocina junto a la pregunta
+           para escuchar la explicacion.
            ================================================================== */
         const finSecciones = [
             {
                 titulo: 'Lo que entra y sale cada mes', subtitulo: 'Tus ventas, ganancias y gastos',
                 bloques: [
                     { id: 'ventas', titulo: '¿Cuánto vendes en un mes?', ayuda: 'Todo lo que te pagan tus clientes en un mes. Si trabajas para alguien, escribe tu sueldo.',
-                      requerido: true, pendiente: 'Escribe cuánto vendes en un mes.',
+                      requerido: true, pendiente: 'Escribe cuánto vendes en un mes.', audio: 'preg_ventas',
                       campos: [{ id: 'ventas' }] },
                     { id: 'costoVentas', titulo: '¿Cuánto gastas en comprar lo que vendes?', ayuda: 'En un mes: la mercadería, los materiales o lo que usas para hacer tu producto.',
+                      audio: 'preg_costo_ventas',
                       campos: [{ id: 'costo_ventas' }] },
                     { tipo: 'resultado', claves: ['A'] },
                     { id: 'gastosNegocio', titulo: '¿Cuánto pagas cada mes para que funcione tu negocio?', ayuda: 'Solo gastos del negocio, no de tu casa.',
+                      audio: 'preg_gastos_negocio',
                       campos: [
                           { id: 'gn_sueldos', label: 'Pago a trabajadores' },
                           { id: 'gn_servicios', label: 'Agua, luz y teléfono del negocio' },
@@ -432,6 +430,7 @@
                       ], subtotal: 'B' },
                     { tipo: 'resultado', claves: ['C'] },
                     { id: 'otrosIngresos', titulo: '¿Recibes otro dinero cada mes?', ayuda: 'Dinero que no viene de tu negocio.',
+                      audio: 'preg_otros_ingresos',
                       campos: [
                           { id: 'remesas', label: 'Remesas (dinero que te mandan de otro país)' },
                           { id: 'otros_ingresos', label: 'Otro dinero', descripcion: '¿De dónde viene? Ej.: alquiler de un cuarto' }
@@ -454,7 +453,7 @@
                           { id: 'otros_egresos', label: 'Otros gastos de la casa', descripcion: '¿Cuáles? Ej.: celular, fiestas' }
                       ], subtotal: 'E' },
                     { tipo: 'resultado', claves: ['F'], destacado: true },
-                    { id: 'dependientes', tipo: 'numero', titulo: '¿Cuántas personas viven de este dinero?', ayuda: 'Cuenta también a los niños.',
+                    { id: 'dependientes', tipo: 'numero', titulo: '¿Cuántas personas viven de este dinero?', ayuda: 'Cuéntate a ti y también a los niños.',
                       requerido: true, pendiente: 'Toca + o − para decir cuántas personas.' }
                 ]
             },
@@ -671,7 +670,11 @@
             "dest_las_dos": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/DESTINO%20DEL%20CRE%CC%81DITO/Las%20dos-%20mercaderi%CC%81a%20y%20equipo.m4a",
             "dest_agro": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/DESTINO%20DEL%20CRE%CC%81DITO/Siembras%20o%20animales.m4a",
             "dest_vivienda": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/DESTINO%20DEL%20CRE%CC%81DITO/Arreglar%20o%20construir%20mi%20casa.m4a",
-            "dest_estudios": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/DESTINO%20DEL%20CRE%CC%81DITO/Estudios.m4a"
+            "dest_estudios": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/DESTINO%20DEL%20CRE%CC%81DITO/Estudios.m4a",
+            "preg_ventas": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PREGUNTAS%20APARTADO%20FINANCIERO/%C2%BFCua%CC%81nto%20vendes%20en%20un%20mes-.m4a",
+            "preg_costo_ventas": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PREGUNTAS%20APARTADO%20FINANCIERO/%C2%BFCua%CC%81nto%20gastas%20en%20comprar%20lo%20que%20vendes-.m4a",
+            "preg_gastos_negocio": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PREGUNTAS%20APARTADO%20FINANCIERO/%C2%BFCua%CC%81nto%20pagas%20cada%20mes%20para%20que%20funcione%20tu%20negocio-.m4a",
+            "preg_otros_ingresos": "https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/PREGUNTAS%20APARTADO%20FINANCIERO/%C2%BFRecibes%20otro%20dinero%20cada%20mes-.m4a"
         };
 
         // Un solo reproductor para todos los iconos. Chrome en Android permite
@@ -841,10 +844,10 @@
 
             datosCliente = { nombres: nombres, dpi: dpi };
 
-            // Paso 1: popup con las instrucciones de "Tu dinero". Las de la
+            // Paso 1: video con las instrucciones de "Tu dinero". Las de la
             // parte social (iconos) se muestran despues, antes de esa parte.
             document.getElementById('modal-instrucciones-fin').classList.remove('hidden');
-            reproducirInstruccionesFin();
+            reproducirVideoInstrucciones();
         }
 
         function cerrarModalError() {
@@ -868,7 +871,7 @@
 
         function volverInicio() {
             detenerInstrucciones();
-            detenerInstruccionesFin();
+            audioOpcion.pause();
             document.getElementById('pantalla-formulario').classList.add('hidden');
             document.getElementById('pantalla-financiera').classList.add('hidden');
             document.getElementById('pantalla-inicio').classList.remove('hidden');
@@ -877,7 +880,7 @@
         }
 
         // Flecha del encabezado: de la parte social regresa a la financiera,
-        // y de la financiera regresa a los datos del integrante.
+        // y de la financiera regresa a los datos del cliente.
         function volverAtras() {
             const social = document.getElementById('pantalla-formulario');
             if (!social.classList.contains('hidden')) {
@@ -1406,7 +1409,6 @@
             // Ningun audio debe sonar mientras el celular escucha.
             audioOpcion.pause();
             detenerInstrucciones();
-            detenerInstruccionesFin();
 
             const reconocedor = new ReconocedorVoz();
             reconocedor.lang = idiomaDictado;
@@ -1503,6 +1505,12 @@
             }
 
             const badge = `<span id="fin-badge-${b.id}" class="shrink-0 w-6 h-6 rounded-full bg-[#E6F4FF] text-[#006DC4] text-[12px] font-semibold flex items-center justify-center transition-colors">${b.num}</span>`;
+            // Bocina a la derecha de la pregunta, solo si hay audio para ella.
+            const bocina = b.audio && AUDIOS_OPCIONES[b.audio] ? `
+                <button type="button" onclick="escucharPregunta(this)" data-audio-pregunta="${b.audio}" aria-label="Escuchar la pregunta"
+                    class="shrink-0 -mt-2 -mr-2 w-11 h-11 flex items-center justify-center">
+                    <span class="w-9 h-9 rounded-full bg-[#E6F4FF] text-[#006DC4] flex items-center justify-center transition-colors">${iconoBocina}</span>
+                </button>` : '';
 
             let cuerpo = '';
             if (b.tipo === 'numero') {
@@ -1567,6 +1575,7 @@
                             <p class="text-[14px] font-medium text-gray-700 leading-snug">${b.titulo}</p>
                             ${b.ayuda ? `<p class="text-[11px] text-gray-400 mt-0.5 leading-snug">${b.ayuda}</p>` : ''}
                         </div>
+                        ${bocina}
                     </div>
                     ${cuerpo}
                     ${subtotal}
@@ -1709,6 +1718,46 @@
             document.getElementById('fin-' + id).value = String(nuevo);
             actualizarFinanzas();
         }
+
+        // Bocina de las preguntas: usa el mismo reproductor de los iconos.
+        // Tocarla mientras suena la detiene.
+        const iconoBocina = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M11 5L6 9H2v6h4l5 4V5z"></path></svg>';
+
+        function bocinaSuena(boton) {
+            return !audioOpcion.paused && !audioOpcion.error && audioOpcion.src === AUDIOS_OPCIONES[boton.dataset.audioPregunta];
+        }
+
+        function escucharPregunta(boton) {
+            if (bocinaSuena(boton)) { audioOpcion.pause(); return; }
+            // Si el celular estaba escuchando para dictar, deja de escuchar.
+            if (dictadoEnCurso) {
+                dictadoEnCurso.resuelto = true;
+                dictadoEnCurso.reconocedor.abort();
+                terminarDictado();
+                const aviso = document.getElementById('aviso-dictado');
+                if (aviso) aviso.classList.add('hidden');
+            }
+            reproducirAudioOpcion(boton.dataset.audioPregunta);
+        }
+
+        // La bocina que suena se pone azul fuerte con las ondas; las demas quedan normales.
+        function pintarBocinas() {
+            document.querySelectorAll('[data-audio-pregunta]').forEach(boton => {
+                const suena = bocinaSuena(boton);
+                if (boton.dataset.suena === String(suena)) return;
+                boton.dataset.suena = String(suena);
+                const circulo = boton.firstElementChild;
+                circulo.classList.toggle('bg-[#006DC4]', suena);
+                circulo.classList.toggle('text-white', suena);
+                circulo.classList.toggle('bg-[#E6F4FF]', !suena);
+                circulo.classList.toggle('text-[#006DC4]', !suena);
+                circulo.innerHTML = suena
+                    ? '<span class="audio-wave flex items-end h-5"><span></span><span></span><span></span></span>'
+                    : iconoBocina;
+                boton.setAttribute('aria-label', suena ? 'Detener el audio' : 'Escuchar la pregunta');
+            });
+        }
+        ['play', 'pause', 'ended', 'error'].forEach(ev => audioOpcion.addEventListener(ev, pintarBocinas));
 
         function finElegirDestino(i) {
             finDestino = i;
@@ -1963,6 +2012,7 @@
 
             // Paso 2: instrucciones con audio y luego la parte social.
             // El play() va dentro del mismo toque del usuario, como exigen los navegadores.
+            audioOpcion.pause();
             document.getElementById('modal-instrucciones').classList.remove('hidden');
             reproducirInstrucciones();
         }
@@ -2013,61 +2063,53 @@
             return datos;
         }
 
-        /* Audio del popup financiero (opcional). Solo existe si al generar el
-           HTML estaba el mp3 "Instrucciones financieras.mp3" en la carpeta de
-           audios; si no, estas funciones no hacen nada. */
-        function audioFin() { return document.getElementById('audio-instrucciones-fin'); }
-        const iconoAudioFin = document.getElementById('audio-fin-icono') ? document.getElementById('audio-fin-icono').innerHTML : '';
+        /* Video de instrucciones de "Tu dinero". Empieza solo, porque se abre
+           con el toque en "Iniciar Evaluación" (los navegadores lo exigen); si
+           aun asi lo bloquean, la persona le da play en el video. Al terminar
+           salen los botones "Empezar" y "Ver el video otra vez". */
+        const videoInstrucciones = document.getElementById('video-instrucciones');
+        const AVISO_VIDEO = 'Cuando termine el video, vas a poder empezar.';
 
-        function pintarBotonAudioFin(reproduciendo) {
-            const texto = document.getElementById('audio-fin-texto');
-            const icono = document.getElementById('audio-fin-icono');
-            if (!texto || !icono) return;
-            texto.innerText = reproduciendo ? 'Reproduciendo... (toca para detener)' : 'Escuchar instrucciones';
-            icono.innerHTML = reproduciendo
-                ? '<span class="audio-wave flex items-end h-5"><span></span><span></span><span></span></span>'
-                : iconoAudioFin;
+        function mostrarBotonesVideo(mostrar, aviso) {
+            document.getElementById('video-botones').classList.toggle('hidden', !mostrar);
+            const p = document.getElementById('video-aviso');
+            p.textContent = aviso || AVISO_VIDEO;
+            p.classList.toggle('hidden', mostrar && !aviso);
         }
 
-        function reproducirInstruccionesFin() {
-            const audio = audioFin();
-            if (!audio) return;
-            detenerInstrucciones();
-            audioOpcion.pause();
-            try { audio.currentTime = 0; } catch (e) {}
-            const intento = audio.play();
+        function reproducirVideoInstrucciones() {
+            mostrarBotonesVideo(false);
+            // Si antes no cargo (sin internet), se intenta descargar otra vez.
+            if (videoInstrucciones.networkState === HTMLMediaElement.NETWORK_NO_SOURCE || videoInstrucciones.error) {
+                videoInstrucciones.load();
+            }
+            try { videoInstrucciones.currentTime = 0; } catch (e) {}
+            const intento = videoInstrucciones.play();
             if (intento !== undefined) {
-                intento.then(() => pintarBotonAudioFin(true))
-                       .catch(err => { console.log('El navegador bloqueó el audio financiero:', err); pintarBotonAudioFin(false); });
+                intento.catch(err => console.log('El navegador no dejó iniciar el video:', err));
             }
         }
 
-        function detenerInstruccionesFin() {
-            const audio = audioFin();
-            if (!audio) return;
-            audio.pause();
-            try { audio.currentTime = 0; } catch (e) {}
-            pintarBotonAudioFin(false);
+        // Si el video no carga, los botones salen de una vez para no dejar a la persona atorada.
+        function videoNoCarga() {
+            mostrarBotonesVideo(true, 'No se pudo cargar el video. Revisa tu internet.');
         }
-
-        function toggleAudioInstruccionesFin() {
-            const audio = audioFin();
-            if (!audio) return;
-            if (audio.paused) reproducirInstruccionesFin();
-            else detenerInstruccionesFin();
-        }
-
-        if (audioFin()) audioFin().addEventListener('ended', () => pintarBotonAudioFin(false));
+        videoInstrucciones.addEventListener('ended', () => mostrarBotonesVideo(true));
+        videoInstrucciones.addEventListener('error', videoNoCarga);
+        const fuentesVideo = videoInstrucciones.querySelectorAll('source');
+        if (fuentesVideo.length) fuentesVideo[fuentesVideo.length - 1].addEventListener('error', videoNoCarga);
 
         function aceptarInstruccionesFin() {
-            detenerInstruccionesFin();
+            videoInstrucciones.pause();
             document.getElementById('modal-instrucciones-fin').classList.add('hidden');
             document.getElementById('pantalla-inicio').classList.add('hidden');
             document.getElementById('pantalla-financiera').classList.remove('hidden');
-            // Los audios de "¿En que vas a usar el credito?" se descargan desde ya,
-            // para que suenen al instante cuando la persona toque una opcion.
-            finBloquesPorId.destino.opciones.forEach(op => {
-                const fuente = AUDIOS_OPCIONES[op.audio];
+            // Los audios de las preguntas y de "¿En que vas a usar el credito?" se
+            // descargan desde ya, para que suenen al instante al tocarlos.
+            const claves = finBloquesPorId.destino.opciones.map(op => op.audio);
+            finSecciones.forEach(sec => sec.bloques.forEach(b => { if (b.audio) claves.push(b.audio); }));
+            claves.forEach(clave => {
+                const fuente = AUDIOS_OPCIONES[clave];
                 if (fuente && fuente.startsWith('http')) fetch(fuente, { mode: 'no-cors' }).catch(() => {});
             });
             document.getElementById('btn-back').classList.remove('hidden');
