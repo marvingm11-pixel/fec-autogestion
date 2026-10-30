@@ -20,15 +20,6 @@
 </head>
 <body class="bg-gray-100 pb-28">
 
-    <!-- ================== AUDIO DE INSTRUCCIONES ==================
-         Se declara una sola vez, con precarga y varias fuentes en orden:
-         1. el mp3 incrustado en base64 (siempre funciona, sin internet)
-         2. GitHub raw  3. jsDelivr
-         El navegador usa la primera que cargue correctamente. -->
-    <audio id="audio-instrucciones" preload="auto" playsinline>
-        <source src="https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/INSTRUCCIONES/Instrucciones%20de%20la%20parte%20social_9759.m4a" type="audio/mp4">
-    </audio>
-
     <!-- Header Fijo Superior Móvil -->
     <div class="fixed top-0 w-full bg-[#006DC4] z-50 shadow-md">
         <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between relative">
@@ -152,23 +143,21 @@
         </div>
     </div>
 
-    <!-- Video de instrucciones (antes del Paso 1 "Tu dinero"). Ocupa toda la
-         pantalla del celular; al terminar salen los botones abajo, a la mano.
-         La zona de botones tiene alto fijo para que el video no se mueva. -->
-    <div id="modal-instrucciones-fin" class="fixed inset-0 bg-black z-[60] hidden">
+    <!-- Video de instrucciones: uno antes de "Tu dinero" y otro antes de "Tu casa",
+         en el mismo reproductor. Ocupa toda la pantalla del celular; al terminar
+         salen los botones abajo, a la mano. La zona de botones tiene alto fijo
+         para que el video no se mueva. -->
+    <div id="modal-video" class="fixed inset-0 bg-black z-[60] hidden">
         <div class="h-full max-w-md mx-auto flex flex-col px-4 pt-5 pb-6">
             <h2 class="text-white text-[17px] font-semibold text-center mb-3">Mira este video antes de empezar</h2>
             <div class="flex-1 min-h-0 flex items-center justify-center">
                 <video id="video-instrucciones" class="max-h-full max-w-full rounded-2xl bg-black" playsinline webkit-playsinline controls preload="auto"
-                    controlslist="nodownload noplaybackrate" disablepictureinpicture>
-                <source src="https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/VIDEOS/MicrosoftTeams-video.mp4" type="video/mp4">
-                <source src="https://raw.githubusercontent.com/marvingm11-pixel/Iconograf-a-para-la-FEC-Social/main/AUDIOS%20ISABEL/VIDEOS/MicrosoftTeams-video.mp4" type="video/mp4">
-                </video>
+                    controlslist="nodownload noplaybackrate" disablepictureinpicture></video>
             </div>
             <div class="h-[132px] shrink-0 pt-4 flex flex-col justify-end">
                 <p id="video-aviso" class="text-white/70 text-[13px] text-center pb-2">Cuando termine el video, vas a poder iniciar.</p>
                 <div id="video-botones" class="hidden space-y-2.5">
-                    <button onclick="aceptarInstruccionesFin()" class="w-full bg-[#006DC4] text-white font-semibold py-3.5 rounded-xl text-[16px] active:bg-[#005294]">
+                    <button onclick="iniciarDespuesDelVideo()" class="w-full bg-[#006DC4] text-white font-semibold py-3.5 rounded-xl text-[16px] active:bg-[#005294]">
                         Iniciar
                     </button>
                     <button onclick="reproducirVideoInstrucciones()" class="w-full flex items-center justify-center gap-2 border border-white/60 text-white font-medium py-3 rounded-xl text-[15px] active:bg-white/10">
@@ -177,33 +166,6 @@
                     </button>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Modal Instrucciones (con audio) -->
-    <div id="modal-instrucciones" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-[24px] p-6 w-full max-w-sm text-center shadow-2xl transform scale-95 transition-transform duration-300">
-            <img src="https://i.postimg.cc/3xHSLNn7/Chat-GPT-Image-11-jun-2026-01-02-12-p-m-1.png" alt="Instrucciones" class="w-14 h-14 mx-auto mb-4 object-contain">
-            <h2 class="text-[18px] font-bold text-[#006DC4] mb-3">Instrucciones</h2>
-            <p class="text-gray-500 mb-4 text-[15px] leading-relaxed">
-                En el siguiente formulario, por favor selecciona con honestidad las opciones que mejor describan las características de tu vivienda y tus condiciones de vida actuales.
-            </p>
-
-            <!-- Control de audio: se activa solo al abrir el modal.
-                 Tambien sirve de respaldo si el navegador bloquea la reproducción. -->
-            <button id="btn-audio" onclick="toggleAudioInstrucciones()"
-                class="w-full flex items-center justify-center gap-2 border border-[#006DC4] text-[#006DC4] bg-[#E6F4FF] font-medium py-2.5 rounded-xl mb-5 text-[14px] transition-colors">
-                <span id="audio-icono" class="flex items-center">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M11 5L6 9H2v6h4l5 4V5z"></path>
-                    </svg>
-                </span>
-                <span id="audio-texto">Escuchar instrucciones</span>
-            </button>
-
-            <button onclick="aceptarInstrucciones()" class="w-full bg-[#006DC4] text-white font-medium py-3 rounded-xl hover:bg-[#005294] transition-colors text-[15px]">
-                Iniciar
-            </button>
         </div>
     </div>
 
@@ -698,9 +660,6 @@
             const fuente = AUDIOS_OPCIONES[clave];
             if (!fuente) return;
 
-            // Si el audio de instrucciones siguiera sonando, se corta.
-            detenerInstrucciones();
-
             audioOpcion.pause();
             if (audioOpcion.src !== fuente) {
                 audioOpcion.src = fuente;
@@ -710,109 +669,6 @@
             const intento = audioOpcion.play();
             if (intento !== undefined) {
                 intento.catch(err => console.log('Audio de opcion bloqueado:', err));
-            }
-        }
-
-        /* ==================================================================
-           AUDIO DE INSTRUCCIONES
-           ------------------------------------------------------------------
-           - Se usa UN solo elemento <audio> precargado (no se crea uno nuevo
-             en cada llamada): así el navegador ya tiene el mp3 en caché
-             cuando se abre el modal y suena de inmediato.
-           - Suena solo dentro del toque en "Continuar", porque iOS y Chrome
-             bloquean cualquier play() que no venga de un gesto. (Ya no se
-             "desbloquea" en el primer toque: en algunos celulares se oía
-             encima del video de instrucciones.)
-           - Si aún así el navegador lo bloquea, el boton del modal queda
-             listo para que la persona lo reproduzca manualmente.
-           ================================================================== */
-        const audioInstrucciones = document.getElementById('audio-instrucciones');
-        let audioDisponible = true;
-
-        // Refleja el estado real del audio en el botón del modal.
-        function pintarBotonAudio(estado) {
-            const btn = document.getElementById('btn-audio');
-            const texto = document.getElementById('audio-texto');
-            const icono = document.getElementById('audio-icono');
-            if (!btn || !texto || !icono) return;
-
-            btn.classList.remove('opacity-50', 'cursor-not-allowed');
-            btn.disabled = false;
-
-            if (estado === 'reproduciendo') {
-                texto.innerText = 'Reproduciendo... (toca para detener)';
-                icono.innerHTML = '<span class="audio-wave flex items-end h-5"><span></span><span></span><span></span></span>';
-            } else if (estado === 'error') {
-                texto.innerText = 'Audio no disponible';
-                icono.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 14l4-4m0 4l-4-4M11 5L6 9H2v6h4l5 4V5z"></path></svg>';
-                btn.classList.add('opacity-50', 'cursor-not-allowed');
-                btn.disabled = true;
-            } else { // 'listo' / pausado
-                texto.innerText = 'Escuchar instrucciones';
-                icono.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M11 5L6 9H2v6h4l5 4V5z"></path></svg>';
-            }
-        }
-
-        if (audioInstrucciones) {
-            audioInstrucciones.addEventListener('ended', () => pintarBotonAudio('listo'));
-            audioInstrucciones.addEventListener('pause', () => {
-                if (!audioInstrucciones.ended) pintarBotonAudio('listo');
-            });
-            // Se dispara solo cuando TODAS las <source> fallaron.
-            audioInstrucciones.addEventListener('error', () => {
-                audioDisponible = false;
-                console.error('No se pudo cargar el audio de instrucciones. Verifica que el repositorio de GitHub sea público y que el nombre del archivo coincida exactamente.');
-                pintarBotonAudio('error');
-            });
-        }
-
-        // El evento 'error' del <audio> puede dispararse ANTES de que el script
-        // registre el listener, asi que tambien se consulta el estado real.
-        function audioNoDisponible() {
-            if (!audioInstrucciones) return true;
-            if (audioInstrucciones.error) return true;
-            // NETWORK_NO_SOURCE (3): ninguna de las <source> pudo cargarse.
-            return audioInstrucciones.networkState === 3;
-        }
-
-        function reproducirInstrucciones() {
-            if (audioNoDisponible()) {
-                audioDisponible = false;
-                pintarBotonAudio('error');
-                return;
-            }
-            try { audioInstrucciones.currentTime = 0; } catch (e) { /* aún no carga: se ignora */ }
-            audioInstrucciones.muted = false;
-            const intento = audioInstrucciones.play();
-            if (intento !== undefined) {
-                intento.then(() => pintarBotonAudio('reproduciendo'))
-                       .catch(err => {
-                           if (err && err.name === 'NotSupportedError' || audioNoDisponible()) {
-                               // El archivo no existe o el formato no se puede reproducir.
-                               audioDisponible = false;
-                               pintarBotonAudio('error');
-                           } else {
-                               // Bloqueo de autoplay: el usuario puede darle al botón.
-                               console.log('El navegador bloqueó el audio:', err);
-                               pintarBotonAudio('listo');
-                           }
-                       });
-            }
-        }
-
-        function detenerInstrucciones() {
-            if (!audioInstrucciones) return;
-            audioInstrucciones.pause();
-            try { audioInstrucciones.currentTime = 0; } catch (e) {}
-        }
-
-        function toggleAudioInstrucciones() {
-            if (audioNoDisponible()) { pintarBotonAudio('error'); return; }
-            if (audioInstrucciones.paused) {
-                reproducirInstrucciones();
-            } else {
-                detenerInstrucciones();
-                pintarBotonAudio('listo');
             }
         }
 
@@ -828,10 +684,9 @@
 
             datosCliente = { nombres: nombres, dpi: dpi };
 
-            // Paso 1: video con las instrucciones de "Tu dinero". Las de la
-            // parte social (iconos) se muestran despues, antes de esa parte.
-            document.getElementById('modal-instrucciones-fin').classList.remove('hidden');
-            reproducirVideoInstrucciones();
+            // Paso 1: video con las instrucciones de "Tu dinero". El de la
+            // parte social (iconos) se muestra despues, antes de esa parte.
+            abrirVideoInstrucciones('fin');
         }
 
         function cerrarModalError() {
@@ -839,10 +694,6 @@
         }
 
         function aceptarInstrucciones() {
-            detenerInstrucciones();
-            pintarBotonAudio('listo');
-
-            document.getElementById('modal-instrucciones').classList.add('hidden');
             document.getElementById('pantalla-inicio').classList.add('hidden');
             document.getElementById('pantalla-financiera').classList.add('hidden');
             document.getElementById('pantalla-formulario').classList.remove('hidden');
@@ -854,7 +705,6 @@
         }
 
         function volverInicio() {
-            detenerInstrucciones();
             audioOpcion.pause();
             document.getElementById('pantalla-formulario').classList.add('hidden');
             document.getElementById('pantalla-financiera').classList.add('hidden');
@@ -868,7 +718,6 @@
         function volverAtras() {
             const social = document.getElementById('pantalla-formulario');
             if (!social.classList.contains('hidden')) {
-                detenerInstrucciones();
                 social.classList.add('hidden');
                 document.getElementById('pantalla-financiera').classList.remove('hidden');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1392,7 +1241,6 @@
             if (document.activeElement === input) input.blur();
             // Ningun audio debe sonar mientras el celular escucha.
             audioOpcion.pause();
-            detenerInstrucciones();
 
             const reconocedor = new ReconocedorVoz();
             reconocedor.lang = idiomaDictado;
@@ -1994,11 +1842,9 @@
             finPasoCompleto = true;
             actualizarAvanceGeneral();
 
-            // Paso 2: instrucciones con audio y luego la parte social.
+            // Paso 2: video de instrucciones y luego la parte social.
             // El play() va dentro del mismo toque del usuario, como exigen los navegadores.
-            audioOpcion.pause();
-            document.getElementById('modal-instrucciones').classList.remove('hidden');
-            reproducirInstrucciones();
+            abrirVideoInstrucciones('social');
         }
 
         function datosFinancierosParaEnvio() {
@@ -2047,12 +1893,26 @@
             return datos;
         }
 
-        /* Video de instrucciones de "Tu dinero". Empieza solo, porque se abre
-           con el toque en "Iniciar Evaluación" (los navegadores lo exigen); si
-           aun asi lo bloquean, la persona le da play en el video. Al terminar
-           salen los botones "Iniciar" y "Ver el video otra vez". */
+        /* Videos de instrucciones: "fin" antes de "Tu dinero" y "social" antes
+           de "Tu casa", en un solo reproductor. Empiezan solos, porque se abren
+           con un toque (los navegadores lo exigen); si aun asi lo bloquean, la
+           persona le da play en el video. Al terminar salen los botones
+           "Iniciar" y "Ver el video otra vez". Cada video tiene dos enlaces:
+           si jsDelivr falla se prueba GitHub raw. */
+        const VIDEOS_INSTRUCCIONES = {
+            fin: ["https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/VIDEOS/MicrosoftTeams-video.mp4", "https://raw.githubusercontent.com/marvingm11-pixel/Iconograf-a-para-la-FEC-Social/main/AUDIOS%20ISABEL/VIDEOS/MicrosoftTeams-video.mp4"],
+            social: ["https://cdn.jsdelivr.net/gh/marvingm11-pixel/Iconograf-a-para-la-FEC-Social@main/AUDIOS%20ISABEL/VIDEOS/Instruccion%20eje%20social.mp4", "https://raw.githubusercontent.com/marvingm11-pixel/Iconograf-a-para-la-FEC-Social/main/AUDIOS%20ISABEL/VIDEOS/Instruccion%20eje%20social.mp4"]
+        };
         const videoInstrucciones = document.getElementById('video-instrucciones');
         const AVISO_VIDEO = 'Cuando termine el video, vas a poder iniciar.';
+        let videoActual = 'fin';   // el video que la persona esta viendo
+        let fuenteVideo = 0;       // cual de los dos enlaces se esta usando
+
+        function cargarVideo(cual, i) {
+            videoInstrucciones.dataset.cual = cual;
+            fuenteVideo = i;
+            videoInstrucciones.src = VIDEOS_INSTRUCCIONES[cual][i];
+        }
 
         function mostrarBotonesVideo(mostrar, aviso) {
             document.getElementById('video-botones').classList.toggle('hidden', !mostrar);
@@ -2061,14 +1921,24 @@
             p.classList.toggle('hidden', mostrar && !aviso);
         }
 
+        function videoVisible() {
+            return !document.getElementById('modal-video').classList.contains('hidden');
+        }
+
+        function abrirVideoInstrucciones(cual) {
+            videoActual = cual;
+            document.getElementById('modal-video').classList.remove('hidden');
+            reproducirVideoInstrucciones();
+        }
+
         function reproducirVideoInstrucciones() {
             mostrarBotonesVideo(false);
             // El video trae su propia voz: ningun otro audio debe sonar encima.
-            detenerInstrucciones();
             audioOpcion.pause();
-            // Si antes no cargo (sin internet), se intenta descargar otra vez.
-            if (videoInstrucciones.networkState === HTMLMediaElement.NETWORK_NO_SOURCE || videoInstrucciones.error) {
-                videoInstrucciones.load();
+            // Si el reproductor tiene el otro video, o este no cargo antes
+            // (sin internet), se carga otra vez desde el primer enlace.
+            if (videoInstrucciones.dataset.cual !== videoActual || videoInstrucciones.error) {
+                cargarVideo(videoActual, 0);
             }
             try { videoInstrucciones.currentTime = 0; } catch (e) {}
             const intento = videoInstrucciones.play();
@@ -2077,10 +1947,19 @@
             }
         }
 
-        // Si el video no carga, los botones salen de una vez para no dejar a la persona atorada.
-        function videoNoCarga() {
-            mostrarBotonesVideo(true, 'No se pudo cargar el video. Revisa tu internet.');
+        // Boton "Iniciar" debajo del video: sigue con la parte que corresponde.
+        function iniciarDespuesDelVideo() {
+            videoInstrucciones.pause();
+            document.getElementById('modal-video').classList.add('hidden');
+            if (videoActual === 'fin') {
+                aceptarInstruccionesFin();
+                // Mientras llena "Tu dinero", se va descargando el video de "Tu casa".
+                cargarVideo('social', 0);
+            } else {
+                aceptarInstrucciones();
+            }
         }
+
         videoInstrucciones.addEventListener('ended', () => mostrarBotonesVideo(true));
         // Si la persona adelanta el video hasta el final, a veces se detiene un
         // poquito antes y no avisa que termino: se toma como terminado.
@@ -2090,13 +1969,21 @@
         }
         videoInstrucciones.addEventListener('timeupdate', revisarFinVideo);
         videoInstrucciones.addEventListener('pause', revisarFinVideo);
-        videoInstrucciones.addEventListener('error', videoNoCarga);
-        const fuentesVideo = videoInstrucciones.querySelectorAll('source');
-        if (fuentesVideo.length) fuentesVideo[fuentesVideo.length - 1].addEventListener('error', videoNoCarga);
+        // Si un enlace falla se prueba el otro; si ninguno carga, los botones
+        // salen de una vez para no dejar a la persona atorada.
+        videoInstrucciones.addEventListener('error', () => {
+            const cual = videoInstrucciones.dataset.cual;
+            if (fuenteVideo + 1 < VIDEOS_INSTRUCCIONES[cual].length) {
+                cargarVideo(cual, fuenteVideo + 1);
+                if (videoVisible()) videoInstrucciones.play().catch(() => {});
+            } else if (videoVisible()) {
+                mostrarBotonesVideo(true, 'No se pudo cargar el video. Revisa tu internet.');
+            }
+        });
+        // El video de "Tu dinero" se empieza a descargar desde que abre la pagina.
+        cargarVideo('fin', 0);
 
         function aceptarInstruccionesFin() {
-            videoInstrucciones.pause();
-            document.getElementById('modal-instrucciones-fin').classList.add('hidden');
             document.getElementById('pantalla-inicio').classList.add('hidden');
             document.getElementById('pantalla-financiera').classList.remove('hidden');
             // Los audios de las preguntas y de "¿En que vas a usar el credito?" se
