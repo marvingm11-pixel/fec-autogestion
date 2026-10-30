@@ -1069,6 +1069,7 @@
         const hayDictado = !!ReconocedorVoz;
         let idiomaDictado = 'es-GT';
         let dictadoEnCurso = null;     // { reconocedor, boton, input } mientras escucha
+        let microfonoOcupado = null;   // sesion que todavia no suelta el microfono (hasta su onend)
 
         const iconoMicrofono = '<svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>';
 
@@ -1200,7 +1201,8 @@
             }
             clearTimeout(mostrarAvisoDictado.temporizador);
             const colores = { escuchando: 'bg-[#006DC4]', bien: 'bg-green-600', error: 'bg-orange-500' };
-            aviso.className = 'fixed left-1/2 -translate-x-1/2 bottom-28 z-50 w-[calc(100%-32px)] max-w-sm rounded-2xl px-4 py-3 text-[14px] font-medium text-white shadow-lg flex items-center gap-3 ' + colores[tipo];
+            // pointer-events-none: el aviso nunca tapa el microfono de otra pregunta.
+            aviso.className = 'fixed left-1/2 -translate-x-1/2 bottom-28 z-50 w-[calc(100%-32px)] max-w-sm rounded-2xl px-4 py-3 text-[14px] font-medium text-white shadow-lg flex items-center gap-3 pointer-events-none ' + colores[tipo];
             aviso.innerHTML = (tipo === 'escuchando'
                 ? '<span class="audio-wave shrink-0"><span></span><span></span><span></span></span>'
                 : '<span class="shrink-0 w-6 h-6 rounded-full bg-white/25 flex items-center justify-center">' + iconoMicrofono + '</span>') + '<span></span>';
@@ -1218,6 +1220,28 @@
             dictadoEnCurso = null;
         }
 
+        // Deja de escuchar sin escribir nada (se toco otro microfono o una bocina).
+        function cancelarDictado() {
+            if (!dictadoEnCurso) return;
+            dictadoEnCurso.resuelto = true;
+            clearTimeout(dictadoEnCurso.silencio);
+            if (dictadoEnCurso.iniciado) dictadoEnCurso.reconocedor.abort();
+            terminarDictado();
+        }
+
+        // Se prueba cada cosa que el celular creyo escuchar, hasta encontrar un numero.
+        function escribirLoDictado(input, textos) {
+            for (const texto of textos) {
+                const monto = montoDictado(texto);
+                if (monto !== null) {
+                    ponerMontoDictado(input, monto);
+                    mostrarAvisoDictado('bien', 'Escuché: ' + formatoQ(parseFloat(monto)));
+                    return;
+                }
+            }
+            mostrarAvisoDictado('error', 'No entendí la cantidad («' + textos[0] + '»). Toca el micrófono y di solo el número.');
+        }
+
         const ERRORES_DICTADO = {
             'no-speech': 'No te escuché. Toca el micrófono y habla otra vez.',
             'not-allowed': 'El celular no dio permiso para usar el micrófono. Puedes escribir el número.',
@@ -1226,16 +1250,24 @@
             'audio-capture': 'No se encontró el micrófono. Puedes escribir el número.'
         };
 
+        // El celular solo deja usar el microfono a un dictado a la vez. Por eso:
+        // - Al tener la cantidad se apaga el microfono de una vez (algunos
+        //   celulares seguian escuchando y el de la siguiente pregunta no oia).
+        // - Si el anterior todavia no lo suelta, el nuevo espera a que lo suelte.
+        // - Si pasan 2 segundos sin oir nada nuevo, se apaga solo.
         function dictarMonto(boton) {
             if (dictadoEnCurso) {
                 // Tocar otra vez el mismo microfono deja de escuchar.
                 if (dictadoEnCurso.boton === boton) {
-                    dictadoEnCurso.reconocedor.stop();
+                    if (dictadoEnCurso.iniciado) {
+                        dictadoEnCurso.reconocedor.stop();
+                    } else {
+                        cancelarDictado();
+                        document.getElementById('aviso-dictado').classList.add('hidden');
+                    }
                     return;
                 }
-                dictadoEnCurso.resuelto = true;
-                dictadoEnCurso.reconocedor.abort();
-                terminarDictado();
+                cancelarDictado();
             }
             const input = boton.parentElement.querySelector('input');
             if (document.activeElement === input) input.blur();
@@ -1246,7 +1278,7 @@
             reconocedor.lang = idiomaDictado;
             reconocedor.interimResults = true;
             reconocedor.maxAlternatives = 5;
-            const sesion = { reconocedor, boton, input, resuelto: false };
+            const sesion = { reconocedor, boton, input, resuelto: false, iniciado: false, texto: '' };
             dictadoEnCurso = sesion;
 
             const circulo = boton.querySelector('span');
@@ -1254,23 +1286,26 @@
             circulo.classList.add('bg-red-500', 'text-white', 'animate-pulse');
             mostrarAvisoDictado('escuchando', 'Te escucho... di la cantidad');
 
+            const apagarEn = ms => {
+                clearTimeout(sesion.silencio);
+                sesion.silencio = setTimeout(() => { try { reconocedor.stop(); } catch (err) {} }, ms);
+            };
+
             reconocedor.onresult = e => {
+                if (sesion.resuelto) return;
                 const resultado = e.results[e.results.length - 1];
+                sesion.texto = resultado[0].transcript;
                 if (!resultado.isFinal) {
                     mostrarAvisoDictado('escuchando', resultado[0].transcript);
+                    apagarEn(2000);
                     return;
                 }
                 sesion.resuelto = true;
-                // Se prueba cada cosa que el celular creyo escuchar, hasta encontrar un numero.
-                for (let i = 0; i < resultado.length; i++) {
-                    const monto = montoDictado(resultado[i].transcript);
-                    if (monto !== null) {
-                        ponerMontoDictado(input, monto);
-                        mostrarAvisoDictado('bien', 'Escuché: ' + formatoQ(parseFloat(monto)));
-                        return;
-                    }
-                }
-                mostrarAvisoDictado('error', 'No entendí la cantidad («' + resultado[0].transcript + '»). Toca el micrófono y di solo el número.');
+                // Ya tiene la cantidad: se apaga el microfono para la siguiente pregunta.
+                clearTimeout(sesion.silencio);
+                try { reconocedor.stop(); } catch (err) {}
+                if (dictadoEnCurso === sesion) terminarDictado();
+                escribirLoDictado(input, Array.from(resultado, alternativa => alternativa.transcript));
             };
             reconocedor.onerror = e => {
                 if (e.error === 'aborted') { sesion.resuelto = true; return; }
@@ -1281,19 +1316,42 @@
                     sesion.resuelto = true;
                     return;
                 }
+                if (sesion.resuelto) return;
                 sesion.resuelto = true;
                 mostrarAvisoDictado('error', ERRORES_DICTADO[e.error] || 'No funcionó el micrófono. Puedes escribir el número.');
             };
             reconocedor.onend = () => {
+                clearTimeout(sesion.silencio);
+                if (microfonoOcupado === sesion) microfonoOcupado = null;
+                if (sesion.alSoltar) sesion.alSoltar();
                 if (dictadoEnCurso === sesion) terminarDictado();
                 if (sesion.reintentar) { dictarMonto(boton); return; }
-                if (!sesion.resuelto) mostrarAvisoDictado('error', ERRORES_DICTADO['no-speech']);
+                if (sesion.resuelto) return;
+                // Algunos celulares (iPhone) no marcan lo escuchado como final:
+                // se usa lo ultimo que escucho.
+                if (sesion.texto) escribirLoDictado(input, [sesion.texto]);
+                else mostrarAvisoDictado('error', ERRORES_DICTADO['no-speech']);
             };
-            try {
-                reconocedor.start();
-            } catch (err) {
-                terminarDictado();
-                mostrarAvisoDictado('error', 'No funcionó el micrófono. Puedes escribir el número.');
+
+            const arrancar = () => {
+                if (dictadoEnCurso !== sesion) return;   // lo cancelaron mientras esperaba
+                sesion.iniciado = true;
+                microfonoOcupado = sesion;
+                try {
+                    reconocedor.start();
+                    apagarEn(8000);
+                } catch (err) {
+                    microfonoOcupado = null;
+                    terminarDictado();
+                    mostrarAvisoDictado('error', 'No funcionó el micrófono. Puedes escribir el número.');
+                }
+            };
+            const anterior = microfonoOcupado;
+            if (anterior) {
+                // Se espera a que el anterior suelte el microfono (maximo 1 segundo).
+                new Promise(soltado => { anterior.alSoltar = soltado; setTimeout(soltado, 1000); }).then(arrancar);
+            } else {
+                arrancar();
             }
         }
 
@@ -1563,9 +1621,7 @@
             if (bocinaSuena(boton)) { audioOpcion.pause(); return; }
             // Si el celular estaba escuchando para dictar, deja de escuchar.
             if (dictadoEnCurso) {
-                dictadoEnCurso.resuelto = true;
-                dictadoEnCurso.reconocedor.abort();
-                terminarDictado();
+                cancelarDictado();
                 const aviso = document.getElementById('aviso-dictado');
                 if (aviso) aviso.classList.add('hidden');
             }
